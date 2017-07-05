@@ -5,5 +5,5 @@
 
 联系方式：1184820705@qq.com
 
-blog地址： [turtletl.com](http://www.lovetd.com)
+blog地址： [lovetd.cn](http://www.lovetd.cn)
 
