@@ -2,9 +2,12 @@
 
 namespace App;
 
+use App\Models\Admin;
 use App\Models\Cash;
 use App\Models\ChDiscount;
 use App\Models\Order;
+use App\Models\Student;
+use App\Models\Teacher;
 use Carbon\Carbon;
 use Dingo\Api\Routing\Helpers;
 use GuzzleHttp\Client;
@@ -15,7 +18,7 @@ use App\Models\Voucher;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use DB;
-
+use JWTAuth;
 class User extends Authenticatable
 {
     public $table = 'user';
@@ -71,13 +74,13 @@ class User extends Authenticatable
             {
                 return false;
             }
-            $user = User::find($UserID);
-            if(!$user)
+            if(!User::find($UserID))
             {
-                return;
+                return false;
             }
             unset($data['UserID']);
             User::where("UserID",$UserID)->update($data);
+            return true;
         }
         else
         {
@@ -389,6 +392,42 @@ class User extends Authenticatable
         $return['total_order_num'] = Order::whereIn("status",[20,30,40])->sum("final_amount");
         $return['total_cash_num'] = Cash::whereIn("status",[3])->sum("cash_money");
         return $return;
+    }
+
+    public static function getSchool()
+    {
+        $user = JWTAuth::parseToken()->authenticate();
+        if(!$user)
+        {
+            return 0;
+        }
+        if($user->IDLevel == "T")
+        {
+            $item = Teacher::where("UserID",$user->UserID)->first();
+            if(!$item)
+            {
+                return 0;
+            }
+            return $item->SchoolID;
+        }
+        elseif ($user->IDLevel == "S")
+        {
+            $item = Student::where("UserID",$user->UserID)->first();
+            if(!$item)
+            {
+                return 0;
+            }
+            return $item->SchoolID;
+        }
+        else
+        {
+            $item = Admin::where("UserID",$user->UserID)->first();
+            if(!$item)
+            {
+                return 0;
+            }
+            return $item->SchoolID;
+        }
     }
 
 }

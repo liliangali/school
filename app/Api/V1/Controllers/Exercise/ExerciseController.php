@@ -1,10 +1,15 @@
 <?php
 
-namespace App\Api\V1\Controllers\Classes;
+namespace App\Api\V1\Controllers\Exercise;
 use App\Api\V1\Controllers\BaseController;
+use App\Helper;
 use App\Models\Admin;
+use App\Models\Answerinfo;
 use App\Models\Classes;
+use App\Models\Course;
 use App\Models\Error;
+use App\Models\Exercise;
+use App\Models\Exerciseitem;
 use App\Models\School;
 use App\Models\Semester;
 use App\Models\Student;
@@ -14,6 +19,7 @@ use Validator;
 use JWTAuth;
 use App\Models\Teacher;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\ImageManager;
 /**
  * @SWG\Swagger(
  *   @SWG\Info(
@@ -35,69 +41,255 @@ use Illuminate\Support\Facades\Storage;
  * )
  */
 
-class ClassesController extends BaseController {
+class ExerciseController extends BaseController {
 
     public function __construct()
     {
-        $this->model = new Classes();
+        $this->model = new Exercise();
     }
+
     public function listT(Request $request)
     {
+
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
-        ];
-        if($this->validateResponse($request,$err))
-        {
-            return $this->errorResponse();
-        }
-        $sarr  = [];
-        $semester = Semester::getLast();
-        $sarr[] = ['SchoolID', Admin::getSchoolId()];
-        if(isset($request->CreatTime) && $request->CreatTime)
-        {
-            $CreatTime =  $semester->AcademicYear - $request->CreatTime + 1;
-            $sarr[] = ['CreatTime', $CreatTime];
-        }
-        $lists = Classes::where($sarr)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
-
-        $list = $lists['data'];
-        foreach ((array)$list as $index => $item)
-        {
-            $list[$index]['AcademicYear'] = $semester->AcademicYear;
-            $list[$index]['SOrder'] = $semester->SOrder;
-            $list[$index]['grade'] = $semester->AcademicYear - $item['CreatTime'] + 1  ;
-            $list[$index]['Stucount'] = Student::where("ClassID",$item['ClassID'])->count();
-            $techer = Teacher::find($item['TID']);
-            $list[$index]['uname'] = isset($techer->UName) ? $techer->UName : '';
-            $school = School::find($item['SchoolID']);
-            $list[$index]['school'] = isset($school->SchoolName) ? $school->SchoolName : '';
-        }
-        $lists['data'] = $list;
-        return $this->successResponse($lists);
-    }
-
-    public function getT(Request $request)
-    {
-        $err = [
             'ClassID'=>"required|integer",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
-        $list = Classes::find($request->ClassID)->toArray();
-        $semester = Semester::getLast();
-        $list['SOrder'] = $semester->SOrder;
-        $list['AcademicYear'] = $semester->AcademicYear;
-        $list['grade'] = $semester->AcademicYear - $list['CreatTime'] + 1  ;;
-        $list['Stucount'] = Student::where("ClassID",$list['ClassID'])->count();
-        $techer = Teacher::find($list['TID']);
-        $list['uname'] = isset($techer->UName) ? $techer->UName : '';
-        $school = School::find($list['SchoolID']);
-        $list['school'] = isset($school->SchoolName) ? $school->SchoolName : '';
-        return $this->successResponse($list);
+        $class = Classes::find($request->ClassID);
+        if(!$class)
+        {
+            return $this->errorResponse('班级不存在');
+        }
+
+        $lists = Exercise::where("ClassID",$request->ClassID)->orderBy('ExNO', 'desc')->paginate($request->page_size)->toArray();
+        $list = $lists['data'];
+        if(!$list)
+        {
+            return $this->successResponse($lists);
+        }
+//echo '<pre>';print_r($list);exit;
+
+        //CourseID
+        $teacher = Helper::getKeyList(new Teacher(),$list);
+        $course =  Helper::getKeyList(new Course(),$list);
+        $list = collect($list)->map(function ($item,$key) use ($teacher,$course){
+            $item['uname']  = isset($teacher['TID']) ? $teacher['TID']['UName'] : '';
+            $item['Coursename'] = isset($course['CourseID']) ? $course['CourseID']['CourseName'] : 0;
+            $item['TrueRate'] = Exercise::getRate($item['ExNO']);
+            return $item;
+        })->toArray();
+        $lists['data'] = $list;
+        return $this->successResponse($lists);
+
     }
+
+    public function getT(Request $request)
+    {
+        $err = [
+            'ExNO'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $exercise = Exercise::find($request->ExNO);
+        if(!$exercise)
+        {
+            return $this->errorResponse('活动不存在');
+        }
+
+        $eitem_list = Exerciseitem::where("ExNO",$request->ExNO)->get()->toArray();
+        $ItemIndexList  = collect($eitem_list)->pluck('ItemIndex')->all();
+        $answerinfo_list = Answerinfo::where("ExNO",$request->ExNO)->whereIn("ItemIndex",$ItemIndexList)->get()->toArray();
+        $answerinfo_list = collect($answerinfo_list)->groupBy("ItemIndex")->toArray();
+//        echo '<pre>';print_r($eitem_list);exit;
+        $eitem_list = collect($eitem_list)->map(function ($item,$key) use ($answerinfo_list){
+            $Score = $item['Point'];
+            $a_info = isset($answerinfo_list[$item['ItemIndex']]) ? $answerinfo_list[$item['ItemIndex']] : [];//当前所有学生答题记录
+//   echo '<pre>';print_r($a_info);exit;
+            
+            $man_answer = 0;
+            $true_answer = 0;
+            $AnsSpendTime = 0;
+            foreach ((array)$a_info as $index => $item1)
+            {
+                if($item1['Selection'])
+                {
+                    $man_answer++;
+                }
+                if($item1['Score'] == $Score)
+                {
+                    $true_answer = 0;
+                }
+                $AnsSpendTime += $item1['SpendTime'];
+            }
+//echo '<pre>';print_r($AnsSpendTime);exit;
+            $item['AnsNum'] = count($man_answer);//答题人数
+            $item['TrueNum'] = count($true_answer);//回答正确人数
+            $TrueRate = 0.00;
+            if($man_answer > 0)
+            {
+                $TrueRate = number_format($true_answer/$man_answer,2);
+            }
+            $AvgSpendTime = 0.00;
+            if($AnsSpendTime)
+            {
+                $AvgSpendTime = number_format($AnsSpendTime/$man_answer,2);
+            }
+            $item['TrueRate'] = $TrueRate;//回答正确人数
+            $item['AnsSpendTime'] = count($AnsSpendTime);//答题时间
+            $item['AvgSpendTime'] = count($AvgSpendTime);//答题时间
+            return $item;
+        })->toArray();
+        return $this->successResponse($eitem_list);
+echo '<pre>';print_r($eitem_list);exit;
+collect($eitem_list);
+//        $list = Classes::find($request->ClassID)->toArray();
+//        $semester = Semester::getLast();
+//        $list['SOrder'] = $semester->SOrder;
+//        $list['AcademicYear'] = $semester->AcademicYear;
+//        $list['grade'] = $semester->AcademicYear - $list['CreatTime'] + 1  ;;
+//        $list['Stucount'] = Student::where("ClassID",$list['ClassID'])->count();
+//        $techer = Teacher::find($list['TID']);
+//        $list['uname'] = isset($techer->UName) ? $techer->UName : '';
+//        $school = School::find($list['SchoolID']);
+//        $list['school'] = isset($school->SchoolName) ? $school->SchoolName : '';
+//        return $this->successResponse($list);
+    }
+
+    public function listST(Request $request)
+    {
+        $err = [
+            'page'=>"required|integer",
+            'page_size'=>"required|integer",
+            'StuID'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $student = Student::find($request->StuID);
+        if(!$student)
+        {
+            return $this->errorResponse('班级不存在');
+        }
+        $an_list = Answerinfo::where("StuID",$request->StuID)->get()->toArray();
+        $ExNO = collect($an_list)->pluck('ExNO');//所有活动
+        $semester = Semester::getLast();
+        $lists = Exercise::where("SNO",$semester->SNO)->whereIn("ExNO",$ExNO)->orderBy('ExNO', 'desc')->paginate($request->page_size)->toArray();
+        $list = $lists['data'];
+        if(!$list)
+        {
+            return $this->successResponse($lists);
+        }
+        $teacher = Helper::getKeyList(new Teacher(),$list);
+        $course =  Helper::getKeyList(new Course(),$list);
+        $list = collect($list)->map(function ($item,$key) use ($teacher,$course,$request){
+            $item['uname']  = isset($teacher[$item['TID']]) ? $teacher[$item['TID']]['UName'] : '';
+            $item['Coursename'] = isset($course[$item['CourseID']]) ? $course[$item['CourseID']]['CourseName'] : '';
+            $strRate = Exercise::getStuRate($item['ExNO'],$request->StuID);
+            $item['TrueRate'] = $strRate['TrueRate'];
+            $item['TrueNum'] = $strRate['TrueNum'];
+            $item['Score'] = $strRate['Score'];
+            $item['AnsNum'] = $strRate['AnsNum'];
+            return $item;
+        })->toArray();
+        $lists['data'] = $list;
+        return $this->successResponse($lists);
+    }
+
+
+    /**
+     * 学生活动详情
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getST(Request $request)
+    {
+        $err = [
+            'ExNO'=>"required|integer",
+            'StuID'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $exercise = Exercise::find($request->ExNO);
+        if(!$exercise)
+        {
+            return $this->errorResponse('活动不存在');
+        }
+        $StuID = $request->StuID;
+        $ItemIndexList  = collect(Exerciseitem::where("ExNO",$request->ExNO)->get()->toArray())->keyBy('ItemIndex')->all();
+        $answerinfo_list = Answerinfo::where("ExNO",$request->ExNO)->where("StuID",$StuID)->get()->toArray();//学生对当前活动的答题列表
+        $answerinfo_list = collect($answerinfo_list)->map(function ($item,$key) use ($ItemIndexList,$StuID,$request){
+            $item['Question'] = isset($ItemIndexList[$item['ItemIndex']]) ? $ItemIndexList[$item['ItemIndex']]['Question'] : '';
+            $item['Type'] = isset($ItemIndexList[$item['ItemIndex']]) ? $ItemIndexList[$item['ItemIndex']]['Type'] : '';
+            $item['Answer'] = isset($ItemIndexList[$item['ItemIndex']]) ? $ItemIndexList[$item['ItemIndex']]['Answer'] : '';
+            $item['Url'] = isset($ItemIndexList[$item['ItemIndex']]) ? $ItemIndexList[$item['ItemIndex']]['Url'] : '';
+            $exer_info = Exercise::getStuRate($request->ExNO,$request->StuID,$item['ItemIndex']);
+            $item['AnsNum'] = $exer_info['AnsNum'];
+            $item['TrueNum'] = $exer_info['TrueNum'];
+            $item['TrueRate'] = $exer_info['TrueRate'];
+            $item['AvgSpendTime'] = $exer_info['AvgSpendTime'];
+            $item['SpendTime'] = $exer_info['SpendTime'];
+            return $item;
+        })->all();
+        return $this->successResponse($answerinfo_list);
+    }
+
+
+    public function getAT(Request $request)
+    {
+        $err = [
+            'page'=>"required|integer",
+            'page_size'=>"required|integer",
+            'ExNO'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $exercise = Exercise::find($request->ExNO);
+        if(!$exercise)
+        {
+            return $this->errorResponse('活动不存在');
+        }
+        $lists = Student::where("ClassID",$exercise->ClassID)->orderBy('StuID', 'desc')->paginate($request->page_size)->toArray();
+        $list = $lists['data'];
+        if(!$list)
+        {
+            return $this->successResponse($lists);
+        }
+        $ItemIndex = collect(Exerciseitem::where("ExNO",$request->ExNO)->get()->toArray())->keyBy('ItemIndex')->all();
+        $answerinfo_list = collect(Answerinfo::where("ExNO",$request->ExNO)->whereIn("StuID",collect($list)->pluck('StuID')->all())->get())->groupBy("StuID")->toArray();
+        $list = collect($list)->map(function ($item) use ($answerinfo_list,$ItemIndex){
+            $an_list = $answerinfo_list[$item['StuID']];
+            $TrueNum = 0;
+            $Score = 0;
+            foreach ((array)$an_list as $index1 => $item1)
+            {
+                if($ItemIndex[$item1['ItemIndex']]['Point'] == $item1['Score'])
+                {
+                    $TrueNum++;
+                }
+                $Score += $item1['Score'];
+            }
+            $TrueRate = number_format($TrueNum/count($an_list));
+            $item['Score'] = $Score;
+            $item['TrueNum'] = $TrueNum;
+            $item['TrueRate'] = $TrueRate;
+            return $item;
+        })->all();
+        $lists['data'] = $list;
+        return $lists;
+    }
+
 
     /**
      * @SWG\Get(
@@ -177,90 +369,6 @@ class ClassesController extends BaseController {
         return $this->errorResponse('删除失败');
     }
 
-    public function rep(Request $request)
-    {
-
-//        $postStr = file_get_contents("php://input");
-//        $path = "log.txt";
-//        echo '<pre>';print_r($_POST);exit;
-//        $aa = file_get_contents("php://input");
-//        $rs = file_put_contents($path,$aa);
-        $all = $request->all();
-//        Storage::disk('local')->put('public/log1.txt', ($all));
-        $CONTENT = $all['CONTENT'];
-//        $convert = mb_convert_encoding($CONTENT,  "Big5","UTF-8"); // 將原來的 big5 轉換成 UTF-8
-//        echo '<pre>';print_r($convert);exit;
-        
-        //将XML转为array
-        //禁止引用外部xml实体
-        libxml_disable_entity_loader(true);
-        $xml= json_decode(json_encode(simplexml_load_string($CONTENT, 'SimpleXMLElement', LIBXML_NOCDATA)), true);
-        foreach ($xml as $index => $item)
-        {
-            foreach ($item as $index1 => $item1)
-            {
-
-                foreach ($item1 as $index2 => $item2)
-                {
-                    if(is_string($item2))
-                    {
-                        $convert = mb_convert_encoding($item2,"Big5", "UTF-8") ; // 將原來的 big5 轉換成 UTF-8
-                        $xml[$index][$index1][$index2] = $convert;
-//                        echo $convert;
-                    }
-
-                }
-                if($item1['ITEMCOUNT'] > 0)
-                {
-//                    $a = $item1['ITEMS']['ITEMINFO'];
-                    foreach ($item1['ITEMS']['ITEMINFO'] as $index3 => $item4)
-                    {
-                        if(is_string($item4))
-                        {
-                            $convert = mb_convert_encoding($item4,"Big5", "UTF-8") ; // 將原來的 big5 轉換成 UTF-8
-                            $xml[$index][$index1]['ITEMS']['ITEMINFO'][$index3] = $convert;
-                        }
-//                        echo $convert;
-                    }
-                }
-
-//                echo '<pre>';print_r($index1);
-//                if($index1)
-//                {
-//
-//                }
-//
-//                echo $item1['CLASSNAME'];
-//                $encode = mb_detect_encoding($item1['CLASSNAME'], array("ASCII","UTF-8","GB2312","GBK","BIG5"));
-//                echo $encode;
-
-
-            }
-        }
-//echo '<pre>';print_r($xml);exit;
-        
-        $all['CONTENT'] = $xml;
-        if(is_array($all)) 
-        {
-        }
-        $re = json_encode($all);
-
-        echo '<pre>';print_r(json_encode($all['CONTENT']));
-        echo '<pre>';print_r($all['CONTENT']);
-
-        Storage::disk('local')->put('public/log1.txt', base64_encode(serialize($all['CONTENT'])));
-        Error::insert(['content'=>($re)]);
-//        echo '<pre>';print_r($all);exit;
-
-        return $xml;
-
-
-//        Error::insert(['content'=>json_encode($request->all())]);
-echo '<pre>';print_r($request->all());exit;
-        
-        Error::insert(['content'=>$postStr]);
-        echo '<pre>';print_r(11);exit;
-    }
 
 
 

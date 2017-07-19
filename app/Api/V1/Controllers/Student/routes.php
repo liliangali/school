@@ -5,6 +5,7 @@
  *
  */
 $api->get('/student', 'Student\StudentController@listT');
+$api->get('/students', 'Student\StudentController@getT');
 $api->post('/student', 'Student\StudentController@addT');
 $api->post('/students', 'Student\StudentController@putT');
 $api->post('/studentc', 'Student\StudentController@changeT');

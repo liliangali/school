@@ -49,7 +49,8 @@ class BaseModel extends Model
         else
         {
             unset($data[$this->getKeyName()]);
-            return $this->insert($data);
+            return $this->insertGetId($data);
+            
         }
     }
 

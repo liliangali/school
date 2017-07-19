@@ -43,13 +43,26 @@ class StudentController extends BaseController {
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
+            'ClassID'=>"required|integer",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
-        $list = Student::where('SchoolID',Admin::getSchoolId())->orderBy('StuID', 'desc')->paginate($request->page_size)->toArray();
+        $list = Student::where("ClassID",$request->ClassID)->orderBy('StuID', 'desc')->paginate($request->page_size)->toArray();
         return $this->successResponse($list);
+    }
+
+    public function getT(Request $request)
+    {
+        $err = [
+            'StuID'=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        return $this->successResponse($this->model->find($request->StuID)->toArray());
     }
     /**
      * @SWG\Get(
@@ -77,9 +90,13 @@ class StudentController extends BaseController {
             'UName'=>"required",
             'Gender'=>"required",
         ];
-        if($this->validateResponse($request,$err,['unique' => '此编号号已经注册!请勿重复注册']))
+        if($this->validateResponse($request,$err,['unique' => '此编号号或者座位号已经存在']))
         {
             return $this->errorResponse();
+        }
+        if((Student::where("SeatNO",$request->SeatNO)->where("ClassID",$request->ClassID)->first()))
+        {
+            return $this->errorResponse('次班级的座位号已经存在');
         }
 
         if(!Classes::find($request->ClassID))
@@ -88,9 +105,11 @@ class StudentController extends BaseController {
         }
         $newItem =$request->all();
         unset($newItem['password']);
-        if($this->model->addU($request,$newItem))
+
+        $id = $this->model->addU($request,$newItem);
+        if($id)
         {
-            return $this->successResponse();
+            return $this->successResponse(['id'=>$id]);
         }
         return $this->errorResponse('添加失败');
     }

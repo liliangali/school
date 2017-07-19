@@ -1,7 +1,8 @@
 <?php
 
 namespace App\Models;
-
+use App\User;
+use JWTAuth;
 
 class Semester extends BaseModel
 {
@@ -11,6 +12,13 @@ class Semester extends BaseModel
 
     public static function getLast()
     {
-        return Semester::orderBy("SNO","DESC")->first();
+        return Semester::orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
+//        return Semester::where("SchoolID",User::getSchool())->orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
+    }
+
+    public static function getAuthLast()
+    {
+//        return Semester::orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
+        return Semester::where("SchoolID",User::getSchool())->orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
     }
 }

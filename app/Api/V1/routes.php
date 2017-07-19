@@ -11,9 +11,11 @@ $api->version('v1', function ($api) {
         $api->group(['middleware' => ['jwt.auth']], function($api) use($dir) {
             include $dir.'User/routes.php';
             include $dir.'Teacher/routes.php';
-            include $dir.'Classes/routes.php';
             include $dir.'Student/routes.php';
             include $dir.'Course/routes.php';
+            include $dir.'Classes/routes.php';
+            include $dir.'Exercise/routes.php';
+            include $dir.'School/routes.php';
         });
     });
 });

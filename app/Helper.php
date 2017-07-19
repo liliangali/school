@@ -64,25 +64,16 @@ class Helper
         });
     }
 
+
+
     /**
      *
-     * 生成二维码
+     * 从二维数组里取出对应model的主键ID,拼接之后查询
      * @type:
      * @return void
      */
-    public static function qrcode($qid,$qtype=1,$limit=30 * 24 * 3600)
+    public static function getKeyList($model,$data)
     {
-        $application = new Application(config("wechat.open_app_config"));
-        $app = $application->open_platform->createAuthorizerApplication(config("wechat.app_id"), WxConfig::getRefreshToken());
-        $qrcode = $app->qrcode;
-        if($qtype == 1)
-        {
-            $result = $qrcode->forever($qid);
-        }
-        else
-        {
-            $result =  $qrcode->temporary($qid, $limit);
-        }
-        return $qrcode->url($result->ticket);
+        return collect($model->whereIn($model->primaryKey,collect($data)->pluck($model->primaryKey)->toArray())->get())->keyBy($model->primaryKey)->all();
     }
 }

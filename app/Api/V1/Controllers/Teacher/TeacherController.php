@@ -52,6 +52,23 @@ class TeacherController extends BaseController {
         $list = Teacher::where('SchoolID',Admin::getSchoolId())->orderBy('TID', 'desc')->paginate($request->page_size)->toArray();
         return $this->successResponse($list);
     }
+
+
+    public function getT(Request $request)
+    {
+        $err = [
+            'TID'=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        return $this->successResponse($this->model->find($request->TID)->toArray());
+        $err = [
+            'TID'=>"required",
+        ];
+    }
+
     /**
      * @SWG\Get(
      *   path="/users/all",
@@ -86,9 +103,10 @@ class TeacherController extends BaseController {
         $newItem =$request->all();
         unset($newItem['password']);
 
-        if($this->model->addU($request,$newItem))
+        $id = $this->model->addU($request,$newItem);
+        if($id)
         {
-            return $this->successResponse();
+            return $this->successResponse(['id'=>$id]);
         }
         return $this->errorResponse('添加失败,请检查编号是否重复');
     }

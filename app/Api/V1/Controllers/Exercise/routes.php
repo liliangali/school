@@ -4,10 +4,10 @@
  * User Controller Routes
  *
  */
-$api->get('/classes', 'Classes\ClassesController@listT');
-$api->get('/classess', 'Classes\ClassesController@getT');
-$api->post('/classes', 'Classes\ClassesController@addT');
-$api->post('/classess', 'Classes\ClassesController@putT');
-$api->delete('/classes', 'Classes\ClassesController@delT');
-$api->any('/rep', 'Classes\ClassesController@rep');
-//$api->put('/teacher', 'Teacher\TeacherController@putT');
+$api->get('/exlistt', 'Exercise\ExerciseController@listT');
+$api->get('/gett', 'Exercise\ExerciseController@getT');
+$api->get('/exlistst', 'Exercise\ExerciseController@listST');
+$api->get('/exgetst', 'Exercise\ExerciseController@getST');
+$api->get('/exgetat', 'Exercise\ExerciseController@getAT');
+$api->get('/exer', 'Exercise\ExerciseController@listT');
+$api->get('/exer', 'Exercise\ExerciseController@listT');

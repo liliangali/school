@@ -3,6 +3,7 @@
 namespace App\Api\V1\Controllers\School;
 use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
+use App\Models\Classes;
 use App\Models\Course;
 use App\Models\Error;
 use App\Models\Exercise;
@@ -78,6 +79,17 @@ class SchoolController extends BaseController {
         $lists['data'] = $list;
         return $this->successResponse($lists);
     }
+
+    public function tokenT(Request $request)
+    {
+        $SchoolID = Admin::getSchoolId();
+        $list['scount'] = Student::where("SchoolID",$SchoolID)->count();
+        $list['tcount'] = Teacher::where("SchoolID",$SchoolID)->count();
+        $list['acount'] = $list['tcount'] + $list['scount'];
+        $list['ccount'] = Classes::where("SchoolID",$SchoolID)->count();
+        return $this->successResponse($list);
+    }
+
 
     public function getT(Request $request)
     {

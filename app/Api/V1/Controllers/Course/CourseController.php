@@ -65,7 +65,197 @@ class CourseController extends BaseController {
         {
             $semester = Semester::first();
         }
-        $lists = Course::where('ClassID',$request->ClassID)->where('SNO',$semester->SNO)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
+        $lists = Course::where('ClassID',$request->ClassID)->where('SNO',$semester->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
+        $list = $lists['data'];
+        foreach ((array)$list as $index => $item)
+        {
+
+            $teacher = Teacher::find($item['TID']);
+            $list[$index]['UName'] = isset($teacher->UName) ? $teacher->UName : '';
+        }
+        $lists['data'] = $list;
+        return $this->successResponse($lists);
+    }
+
+    public function listAT(Request $request)
+    {
+        $err = [
+            'page'=>"required|integer",
+            'page_size'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+
+        //=====  获取最新学年  =====
+        if($request->AcademicYear && $request->SOrder)
+        {
+            $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->first();
+            if(!$semester)
+            {
+                $semester = Semester::getAuthLast();
+            }
+        }
+        else
+        {
+            $semester = Semester::getAuthLast();
+        }
+        $Teacher =Teacher::where("SchoolID",$semester->SchoolID)->get()->keyBy("TID")->toArray();
+//        echo '<pre>';print_r($Teacher);exit;
+//        $course = ;//该学期下的所有课程
+        $course = Course::where("SNO",$semester->SNO)->get()->map(function ($item) use($Teacher) {
+             $item['UName'] = '';
+            if(isset($Teacher[$item['TID']]))
+            {
+                $item['UName'] = $Teacher[$item['TID']]['UName'];
+            }
+            return $item;
+        })->groupBy("CourseName")->keys()->toArray();
+
+//echo '<pre>';print_r($cou->toArray());exit;
+//echo '<pre>';print_r($course);exit;
+
+//        $course = collect(collect(Course::where("SNO",$semester->SNO)->get()->toArray()->map(function ($item) use($Teacher){
+//            $item['UName'] = '';
+//            if(isset($Teacher[$item['TID']]))
+//            {
+//                $item['UName'] = $Teacher[$item['TID']]['UName'];
+//            }
+//            return $item;
+//        })->toArray())->get())->groupBy("ClassID")->toArray();
+
+
+        $AcademicYear = $semester->AcademicYear;
+
+        $class = Classes::where("SchoolID",$semester->SchoolID)->get()->groupBy('CreatTime')->toArray();
+//echo '<pre>';print_r($class);exit;
+
+        $grade_list = [];
+        foreach ((array)$class as $index => $item)//按照年级来分组整理所有的班级
+        {
+            $grade  = $AcademicYear -  $index + 1;
+//            $grade_list[$grade];
+            $grade_list[$grade]['grade'] = $grade;
+            //=====  取得年级下的所有班级的主键  =====
+//            $classIdArr = collect($item)->pluck('ClassID');
+//            $grade_list[$grade]['grade'] = $grade;
+            $gra = [];
+            //$semester->AcademicYear - $item['CreatTime'] + 1;//年级号=当前学年 -班级创建时间+1
+
+//            $gra['grade'] = $grade;
+            $gr = [];
+            $course_a = [];//这样得出年级下所有班级的所有课程
+            foreach ($item as $index1 => $item1)//该年级下的所有班级
+            {
+                $a = $course;
+                $b = [];
+                foreach ((array)$a as $index3 => $item3)
+                {
+                    $i = [];
+                    $i['CourseName'] = $item3;
+                    $cu_Info = Course::where("CourseName",$item3)->where("ClassID",$item1['ClassID'])->first();
+                    if(!($cu_Info))
+                    {
+                        $i['UName'] = "";
+
+                    }
+                    else
+                    {
+                        $i['UName'] = $Teacher[$cu_Info->TID]['UName'];
+                    }
+                    $b[] = $i;
+                }
+
+                $item1['Course'] = $b;
+//                $item1['Course'] = isset($course[$item1['ClassID']]) ? $course[$item1['ClassID']] : '';
+//                 if(isset($course[$item1['ClassID']]))
+//                 {
+//                     $course_a = array_merge($course_a,$course[$item1['ClassID']]);
+//                 }
+//                $ClassID = $item1['ClassID'];
+//                $course = Course::where("ClassID",$ClassID)->get();
+//                foreach ((array)$course as $index2 => $item3)
+//                {
+//
+//                }
+//                $gr[] = $item1;
+                $grade_list[$grade]['class_list'][] = $item1;
+
+            }
+            $grade_list[$grade]['course_list'] = $course;
+//            echo '<pre>';print_r($course_a);exit;
+            
+//            $gra['ga'] = $gr;
+//            $gra['Class'][] = $item;
+            //Course
+
+
+        }
+        return $this->successResponse(array_values($grade_list));
+        echo '<pre>';print_r($grade_list);exit;
+        
+        $semester = $semester->toArray();
+        $semester['gradlist'] = $grade_list;
+        return $this->successResponse($semester);
+echo '<pre>';print_r($grade_list);exit;
+
+
+
+        $lists = Course::where('SNO',$semester->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
+        $list = $lists['data'];
+        foreach ((array)$list as $index => $item)
+        {
+            $teacher = Teacher::find($item['TID']);
+            $list[$index]['UName'] = isset($teacher->UName) ? $teacher->UName : '';
+        }
+        $lists['data'] = $list;
+        return $this->successResponse($lists);
+    }
+    public function listIT(Request $request)
+    {
+        $err = [
+            "CourseID"=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $info = $this->model->find($request->CourseID)->toArray();
+        if(!$info)
+        {
+            return $this->errorResponse();
+        }
+        $teacher = Teacher::find($info['TID']);
+        $info["UName"] = isset($teacher->UName) ? $teacher->UName : '';
+        return $this->successResponse($info);
+    }
+
+    public function listST(Request $request)
+    {
+        $err = [
+            'page'=>"required|integer",
+            'page_size'=>"required|integer",
+            'SchoolID'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+
+        if($request->AcademicYear && $request->SOrder)
+        {
+            $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->first();
+            if(!$semester)
+            {
+                $semester = Semester::first();
+            }
+        }
+        else
+        {
+            $semester = Semester::first();
+        }
+        $lists = Course::where('SchoolID',$request->SchoolID)->where('SNO',$semester->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
         $list = $lists['data'];
         foreach ((array)$list as $index => $item)
         {
@@ -94,7 +284,6 @@ class CourseController extends BaseController {
 
     public function addT(Request $request) {
         $err = [
-            'SNO'=>"required",
             'ClassID'=>"required",
             'CourseName'=>"required",
             'TID'=>"required",
@@ -111,9 +300,13 @@ class CourseController extends BaseController {
         {
             return $this->errorResponse("此老师ID不存在");
         }
-        if($this->model->saveModel($request->all()))
+        $seme = Semester::getAuthLast();
+        $all = $request->all();
+        $all['SNO'] = $seme->SNO;
+        $id = $this->model->saveModel($all);
+        if($id)
         {
-            return $this->successResponse();
+            return $this->successResponse(['id'=>$id]);
         }
         return $this->errorResponse('添加失败');
     }
@@ -128,10 +321,6 @@ class CourseController extends BaseController {
             return $this->errorResponse();
         }
 
-//        if(!Teacher::find($request->TID))
-//        {
-//            return $this->errorResponse("此老师ID不存在");
-//        }
         if($this->model->saveModel($request->all()))
         {
             return $this->successResponse();

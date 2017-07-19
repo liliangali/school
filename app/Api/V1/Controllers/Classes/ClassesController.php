@@ -4,6 +4,7 @@ namespace App\Api\V1\Controllers\Classes;
 use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
 use App\Models\Classes;
+use App\Models\Error;
 use App\Models\School;
 use App\Models\Semester;
 use App\Models\Student;
@@ -12,7 +13,7 @@ use Validator;
 
 use JWTAuth;
 use App\Models\Teacher;
-
+use Illuminate\Support\Facades\Storage;
 /**
  * @SWG\Swagger(
  *   @SWG\Info(
@@ -65,7 +66,7 @@ class ClassesController extends BaseController {
         {
             $list[$index]['AcademicYear'] = $semester->AcademicYear;
             $list[$index]['SOrder'] = $semester->SOrder;
-            $list[$index]['grade'] = $semester->AcademicYear - $item['CreatTime'] + 1  ;
+            $list[$index]['grade'] = $semester->AcademicYear - $item['CreatTime'] + 1;//年级号=当前学年 -班级创建时间+1
             $list[$index]['Stucount'] = Student::where("ClassID",$item['ClassID'])->count();
             $techer = Teacher::find($item['TID']);
             $list[$index]['uname'] = isset($techer->UName) ? $techer->UName : '';
@@ -119,9 +120,9 @@ class ClassesController extends BaseController {
         $err = [
             'TID'=>"required",
             'CreatTime'=>"required",
-            'ClassName'=>"required",
+            'ClassName'=>"required|unique:classes",
         ];
-        if($this->validateResponse($request,$err))
+        if($this->validateResponse($request,$err,['unique' => '班级名字重复']))
         {
             return $this->errorResponse();
         }
@@ -129,9 +130,10 @@ class ClassesController extends BaseController {
         {
             return $this->errorResponse("此老师ID不存在");
         }
-        if($this->model->saveModel($request->all()))
+        $id = $this->model->saveModel($request->all());
+        if($id)
         {
-            return $this->successResponse();
+            return $this->successResponse(['id'=>$id]);
         }
         return $this->errorResponse('添加失败');
     }
@@ -150,6 +152,10 @@ class ClassesController extends BaseController {
         if(!Teacher::find($request->TID))
         {
             return $this->errorResponse("此老师ID不存在");
+        }
+        if((Classes::where("ClassName",$request->ClassName)->where("ClassID","!=",$request->ClassID)->first()))
+        {
+            return $this->errorResponse("班级名字重复");
         }
         if($this->model->saveModel($request->all()))
         {
@@ -174,6 +180,58 @@ class ClassesController extends BaseController {
             return $this->successResponse();
         }
         return $this->errorResponse('删除失败');
+    }
+
+    public function rep(Request $request)
+    {
+
+
+        $all = $request->all();
+        $CONTENT = $all['CONTENT'];
+        //将XML转为array
+        //禁止引用外部xml实体
+        libxml_disable_entity_loader(true);
+        $xml= json_decode(json_encode(simplexml_load_string($CONTENT, 'SimpleXMLElement', LIBXML_NOCDATA)), true);
+        foreach ($xml as $index => $item)
+        {
+            foreach ($item as $index1 => $item1)
+            {
+
+                foreach ($item1 as $index2 => $item2)
+                {
+                    if(is_string($item2))
+                    {
+                        $convert = mb_convert_encoding($item2,"Big5", "UTF-8") ; // 將原來的 big5 轉換成 UTF-8
+                        $xml[$index][$index1][$index2] = $convert;
+//                        echo $convert;
+                    }
+
+                }
+                if($item1['ITEMCOUNT'] > 0)
+                {
+                    foreach ($item1['ITEMS']['ITEMINFO'] as $index3 => $item4)
+                    {
+                        if(is_string($item4))
+                        {
+                            $convert = mb_convert_encoding($item4,"Big5", "UTF-8") ; // 將原來的 big5 轉換成 UTF-8
+                            $xml[$index][$index1]['ITEMS']['ITEMINFO'][$index3] = $convert;
+                        }
+                    }
+                }
+
+
+            }
+        }
+        $all['CONTENT'] = $xml;
+        if(is_array($all)) 
+        {
+        }
+        $re = json_encode($all);
+        echo '<pre>';print_r(json_encode($all['CONTENT']));
+        echo '<pre>';print_r($all['CONTENT']);
+        Storage::disk('local')->put('public/log1.txt', base64_encode(serialize($all['CONTENT'])));
+        Error::insert(['content'=>($re)]);
+        return $xml;
     }
 
 
