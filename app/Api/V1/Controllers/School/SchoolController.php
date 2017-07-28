@@ -216,6 +216,7 @@ class SchoolController extends BaseController {
         }
         $user = User::where("LoginID",$request->CivilID)->first();
         $all = $request->all();
+        unset($all['token']);
         unset($all['password']);
         $all['UserID'] = $user->UserID;
         Admin::insert($all);
@@ -277,6 +278,7 @@ class SchoolController extends BaseController {
             return $this->errorResponse('失败,编号已存在');
         }
         $all = $request->all();
+        unset($all['token']);
         unset($all['password']);
         unset($all['AdminID']);
         Admin::where("AdminID",$request->AdminID)->update($all);
@@ -305,6 +307,7 @@ class SchoolController extends BaseController {
         }
         $all = $request->all();
         $SchoolID = $all['SchoolID'];
+        unset($all['token']);
         unset($all['SchoolID']);
         School::where("SchoolID",$SchoolID)->update($all);
         return $this->successResponse();
