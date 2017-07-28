@@ -54,6 +54,7 @@ class ClassesController extends BaseController {
         {
             return $this->errorResponse();
         }
+        $user = JWTAuth::parseToken()->authenticate();
         $sarr  = [];
         $semester = Semester::getLast();
         $sarr[] = ['SchoolID', User::getSchool()];
@@ -62,6 +63,12 @@ class ClassesController extends BaseController {
             $CreatTime =  $semester->AcademicYear - $request->CreatTime + 1;
             $sarr[] = ['CreatTime', $CreatTime];
         }
+        if($user->IDLevel == "T")
+        {
+            $item = Teacher::where("UserID",$user->UserID)->first();
+            $sarr[] = ['TID', $item->TID];
+        }
+
         $lists = Classes::where($sarr)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
 
         $list = $lists['data'];
