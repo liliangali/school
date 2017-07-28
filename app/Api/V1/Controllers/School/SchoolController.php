@@ -165,8 +165,8 @@ class SchoolController extends BaseController {
         }
         $all = $request->all();
         unset($all['token']);
-        School::insert($all);
-        return $this->successResponse();
+        $id = School::insertGetId($all);
+        return $this->successResponse(['id'=>$id]);
     }
 
     /**
