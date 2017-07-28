@@ -303,6 +303,11 @@ echo '<pre>';print_r($grade_list);exit;
         $seme = Semester::getAuthLast();
         $ClassID = json_decode($request->ClassID,1);
         $CourseName = json_decode($request->CourseName,1);
+        if(!$ClassID || !$CourseName)
+        {
+            return $this->errorResponse("ClassID和CourseName 必须是json形式的数组格式");
+        }
+        
         $TID= json_decode($request->TID,1);
         $adata['SNO'] =$seme->SNO;
         foreach ($ClassID as $index => $item)
