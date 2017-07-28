@@ -4,6 +4,7 @@ namespace App\Api\V1\Controllers\Classes;
 use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
 use App\Models\Classes;
+use App\Models\Course;
 use App\Models\Error;
 use App\Models\Exercise;
 use App\Models\Exerciseitem;
@@ -56,6 +57,7 @@ class ClassesController extends BaseController {
         }
         $user = JWTAuth::parseToken()->authenticate();
         $sarr  = [];
+        $lists = [];
         $semester = Semester::getLast();
         $sarr[] = ['SchoolID', User::getSchool()];
         if(isset($request->CreatTime) && $request->CreatTime)
@@ -67,9 +69,29 @@ class ClassesController extends BaseController {
         {
             $item = Teacher::where("UserID",$user->UserID)->first();
             $sarr[] = ['TID', $item->TID];
+            //=====  如果是认可教师  =====
+            $course = Course::where("TID",$item->TID)->get();
+            $acourse = $aclass = [];
+            if($course)
+            {
+                $acourse = $course->pluck("ClassID")->all();
+            }
+            $class  = Classes::where("TID",$item->TID)->get();
+            if($class)
+            {
+                $aclass = $class->pluck("ClassID")->all();
+            }
+            $allclass = array_merge($acourse,$aclass);
+            if($allclass)
+            {
+                $lists  = Classes::whereIn("ClassID",$allclass)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
+            }
+        }
+        else
+        {
+            $lists = Classes::where($sarr)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
         }
 
-        $lists = Classes::where($sarr)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
 
         $list = $lists['data'];
         foreach ((array)$list as $index => $item)
