@@ -22,6 +22,8 @@ class TeacherCheck
             return response()->json(['error'=>'token_expired'])->setStatusCode(401);
         }
         $response = ['state'=>'0','msg'=>"只有教师可以操作"];
+        echo '<pre>';print_r($user);exit;
+        
         if($user->IDLevel != "T")
         {
             return response()->json($response);
