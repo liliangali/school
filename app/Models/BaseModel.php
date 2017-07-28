@@ -31,7 +31,6 @@ class BaseModel extends Model
             }
         }
 
-
         if(isset($data[$this->getKeyName()]) && $data[$this->getKeyName()])
         {
             $key_name = $data[$this->getKeyName()];

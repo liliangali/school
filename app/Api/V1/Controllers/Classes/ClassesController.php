@@ -5,6 +5,8 @@ use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
 use App\Models\Classes;
 use App\Models\Error;
+use App\Models\Exercise;
+use App\Models\Exerciseitem;
 use App\Models\School;
 use App\Models\Semester;
 use App\Models\Student;
@@ -68,6 +70,14 @@ class ClassesController extends BaseController {
             $list[$index]['SOrder'] = $semester->SOrder;
             $list[$index]['grade'] = $semester->AcademicYear - $item['CreatTime'] + 1;//年级号=当前学年 -班级创建时间+1
             $list[$index]['Stucount'] = Student::where("ClassID",$item['ClassID'])->count();
+            $list[$index]['ExNum'] = 0;
+            $list[$index]['ExItemNum'] = 0;
+            $exercise = Exercise::where("ClassID",$item['ClassID'])->get();//=====  获取所有班级的活动  =====
+            if($exercise)
+            {
+                $list[$index]['Exnum'] = $exercise->count();
+                $list[$index]['ExItemNum'] = Exerciseitem::whereIn("ExNO",$exercise->pluck("ExNO")->all())->get()->count();
+            }
             $techer = Teacher::find($item['TID']);
             $list[$index]['uname'] = isset($techer->UName) ? $techer->UName : '';
             $school = School::find($item['SchoolID']);

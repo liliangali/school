@@ -292,23 +292,28 @@ echo '<pre>';print_r($grade_list);exit;
         {
             return $this->errorResponse();
         }
-        if(!Classes::find($request->ClassID))
-        {
-            return $this->errorResponse("此班级ID不存在");
-        }
-        if(!Teacher::find($request->TID))
-        {
-            return $this->errorResponse("此老师ID不存在");
-        }
+//        if(!Classes::find($request->ClassID))
+//        {
+//            return $this->errorResponse("此班级ID不存在");
+//        }
+//        if(!Teacher::find($request->TID))
+//        {
+//            return $this->errorResponse("此老师ID不存在");
+//        }
         $seme = Semester::getAuthLast();
-        $all = $request->all();
-        $all['SNO'] = $seme->SNO;
-        $id = $this->model->saveModel($all);
-        if($id)
+        $ClassID = json_decode($request->ClassID,1);
+        $CourseName = json_decode($request->CourseName,1);
+        $TID= json_decode($request->TID,1);
+        $adata['SNO'] =$seme->SNO;
+        foreach ($ClassID as $index => $item)
         {
-            return $this->successResponse(['id'=>$id]);
+            $adata['ClassID'] = $item;
+            $adata['CourseName'] = $CourseName[$index];
+            $adata['TID'] = $TID[$index];
+            $this->model->saveModel($adata);
         }
-        return $this->errorResponse('添加失败');
+
+        return $this->successResponse();
     }
 
     public function putT(Request $request) {
@@ -320,12 +325,15 @@ echo '<pre>';print_r($grade_list);exit;
         {
             return $this->errorResponse();
         }
-
-        if($this->model->saveModel($request->all()))
+        $TID = json_decode($request->TID,1);
+        $CourseID = json_decode($request->CourseID,1);
+        foreach ((array)$CourseID as $index => $item)
         {
-            return $this->successResponse();
+            $adata['TID'] = $item;
+            $adata['CourseID'] = $CourseID[$index];
+            $this->model->saveModel($adata);
         }
-        return $this->errorResponse('更新失败');
+        return $this->successResponse();
     }
 
     public function delT(Request $request)

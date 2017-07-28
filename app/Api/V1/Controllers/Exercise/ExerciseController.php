@@ -107,12 +107,9 @@ class ExerciseController extends BaseController {
         $ItemIndexList  = collect($eitem_list)->pluck('ItemIndex')->all();
         $answerinfo_list = Answerinfo::where("ExNO",$request->ExNO)->whereIn("ItemIndex",$ItemIndexList)->get()->toArray();
         $answerinfo_list = collect($answerinfo_list)->groupBy("ItemIndex")->toArray();
-//        echo '<pre>';print_r($eitem_list);exit;
-        $eitem_list = collect($eitem_list)->map(function ($item,$key) use ($answerinfo_list){
+        $eitem_list = collect($eitem_list)->map(function ($item) use ($answerinfo_list){
             $Score = $item['Point'];
             $a_info = isset($answerinfo_list[$item['ItemIndex']]) ? $answerinfo_list[$item['ItemIndex']] : [];//当前所有学生答题记录
-//   echo '<pre>';print_r($a_info);exit;
-            
             $man_answer = 0;
             $true_answer = 0;
             $AnsSpendTime = 0;
@@ -128,7 +125,6 @@ class ExerciseController extends BaseController {
                 }
                 $AnsSpendTime += $item1['SpendTime'];
             }
-//echo '<pre>';print_r($AnsSpendTime);exit;
             $item['AnsNum'] = count($man_answer);//答题人数
             $item['TrueNum'] = count($true_answer);//回答正确人数
             $TrueRate = 0.00;
@@ -147,19 +143,6 @@ class ExerciseController extends BaseController {
             return $item;
         })->toArray();
         return $this->successResponse($eitem_list);
-echo '<pre>';print_r($eitem_list);exit;
-collect($eitem_list);
-//        $list = Classes::find($request->ClassID)->toArray();
-//        $semester = Semester::getLast();
-//        $list['SOrder'] = $semester->SOrder;
-//        $list['AcademicYear'] = $semester->AcademicYear;
-//        $list['grade'] = $semester->AcademicYear - $list['CreatTime'] + 1  ;;
-//        $list['Stucount'] = Student::where("ClassID",$list['ClassID'])->count();
-//        $techer = Teacher::find($list['TID']);
-//        $list['uname'] = isset($techer->UName) ? $techer->UName : '';
-//        $school = School::find($list['SchoolID']);
-//        $list['school'] = isset($school->SchoolName) ? $school->SchoolName : '';
-//        return $this->successResponse($list);
     }
 
     public function listST(Request $request)
@@ -211,10 +194,24 @@ collect($eitem_list);
      */
     public function getST(Request $request)
     {
+        $user = JWTAuth::parseToken()->authenticate();
         $err = [
             'ExNO'=>"required|integer",
-            'StuID'=>"required|integer",
+//            'StuID'=>"required|integer",
         ];
+        if($user->IDLevel == "S")
+        {
+            $student = Student::where("UserID",$user->UserID)->first();
+            $StuID = $student->StuID;
+        }
+        else
+        {
+            $StuID = $request->StuID;
+        }
+        if(!$StuID)
+        {
+            return $this->errorResponse("学生ID不存在");
+        }
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
@@ -224,7 +221,7 @@ collect($eitem_list);
         {
             return $this->errorResponse('活动不存在');
         }
-        $StuID = $request->StuID;
+
         $ItemIndexList  = collect(Exerciseitem::where("ExNO",$request->ExNO)->get()->toArray())->keyBy('ItemIndex')->all();
         $answerinfo_list = Answerinfo::where("ExNO",$request->ExNO)->where("StuID",$StuID)->get()->toArray();//学生对当前活动的答题列表
         $answerinfo_list = collect($answerinfo_list)->map(function ($item,$key) use ($ItemIndexList,$StuID,$request){
@@ -232,7 +229,7 @@ collect($eitem_list);
             $item['Type'] = isset($ItemIndexList[$item['ItemIndex']]) ? $ItemIndexList[$item['ItemIndex']]['Type'] : '';
             $item['Answer'] = isset($ItemIndexList[$item['ItemIndex']]) ? $ItemIndexList[$item['ItemIndex']]['Answer'] : '';
             $item['Url'] = isset($ItemIndexList[$item['ItemIndex']]) ? $ItemIndexList[$item['ItemIndex']]['Url'] : '';
-            $exer_info = Exercise::getStuRate($request->ExNO,$request->StuID,$item['ItemIndex']);
+            $exer_info = Exercise::getStuRate($request->ExNO,$StuID,$item['ItemIndex']);
             $item['AnsNum'] = $exer_info['AnsNum'];
             $item['TrueNum'] = $exer_info['TrueNum'];
             $item['TrueRate'] = $exer_info['TrueRate'];

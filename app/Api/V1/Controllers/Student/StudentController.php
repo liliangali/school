@@ -5,6 +5,7 @@ use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
 use App\Models\Classes;
 use App\Models\Student;
+use App\User;
 use Illuminate\Http\Request;
 use Validator;
 
@@ -105,8 +106,8 @@ class StudentController extends BaseController {
         }
         $newItem =$request->all();
         unset($newItem['password']);
-
         $id = $this->model->addU($request,$newItem);
+        User::where("LoginID",$request->CivilID)->update(["IDLevel"=>"S"]);
         if($id)
         {
             return $this->successResponse(['id'=>$id]);

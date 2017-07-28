@@ -170,6 +170,7 @@ return [
         Sentry\SentryLaravel\SentryLaravelServiceProvider::class,//监控错误
         Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class,
         Barryvdh\Debugbar\ServiceProvider::class,
+        Maatwebsite\Excel\ExcelServiceProvider::class,
 
     ],
 
@@ -224,6 +225,7 @@ return [
         'SmsManager' => Toplan\Sms\Facades\SmsManager::class,
         'Sentry' => Sentry\SentryLaravel\SentryFacade::class,
         'Debugbar' => Barryvdh\Debugbar\Facade::class,
+        'Excel' => Maatwebsite\Excel\Facades\Excel::class,
 
     ],
 

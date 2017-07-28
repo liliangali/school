@@ -16,7 +16,8 @@
         "barryvdh/laravel-ide-helper": "^2.3",
         "toplan/laravel-sms": "~2.6",
         "sentry/sentry-laravel": "^0.7.0",
-        "barryvdh/laravel-debugbar": "^2.4"
+        "barryvdh/laravel-debugbar": "^2.4",
+        "maatwebsite/excel": "~2.1.0"
     },
     "require-dev": {
         "fzaninotto/faker": "~1.4",

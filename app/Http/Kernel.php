@@ -49,10 +49,13 @@ class Kernel extends HttpKernel
     protected $routeMiddleware = [
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
-	'jwt.auth' => \Tymon\JWTAuth\Middleware\GetUserFromToken::class,
-	'jwt.refresh' => \Tymon\JWTAuth\Middleware\RefreshToken::class,
+        'jwt.auth' => \Tymon\JWTAuth\Middleware\GetUserFromToken::class,
+        'jwt.refresh' => \Tymon\JWTAuth\Middleware\RefreshToken::class,
         'api.sign' => \App\Http\Middleware\ApiSign::class,
         'api.admin' => \App\Http\Middleware\AdminMiddleware::class,
-        'api.ch' => \App\Http\Middleware\ChMiddleware::class,
+        'api.teacher' => \App\Http\Middleware\TeacherCheck::class,
+        'api.student' => \App\Http\Middleware\StudentCheck::class,
+        'api.at' => \App\Http\Middleware\ATtudentCheck::class,
+        'api.sadmin' => \App\Http\Middleware\SadminMiddleware::class,
     ];
 }

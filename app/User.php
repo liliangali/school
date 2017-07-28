@@ -419,7 +419,7 @@ class User extends Authenticatable
             }
             return $item->SchoolID;
         }
-        else
+        elseif ($user->IDLevel == "U")
         {
             $item = Admin::where("UserID",$user->UserID)->first();
             if(!$item)
@@ -428,6 +428,7 @@ class User extends Authenticatable
             }
             return $item->SchoolID;
         }
+        return 0;
     }
 
 }

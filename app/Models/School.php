@@ -19,8 +19,6 @@ class School extends BaseModel
 
     public static function delUser($model,$school_id)
     {
-//        echo '<pre>';print_r($model);exit;
-        
         if(is_array($model)) 
         {
             foreach ((array)$model as $index => $item)

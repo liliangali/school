@@ -54,39 +54,54 @@ class SchoolController extends BaseController {
         {
             return $this->errorResponse();
         }
-        $sarr  = [];
-        $semester = Semester::getLast();
-        $sarr[] = ['SchoolID', Admin::getSchoolId()];
-        if(isset($request->CreatTime) && $request->CreatTime)
-        {
-            $CreatTime =  $semester->AcademicYear - $request->CreatTime + 1;
-            $sarr[] = ['CreatTime', $CreatTime];
-        }
-        $lists = Classes::where($sarr)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
-
+        $user = JWTAuth::parseToken()->authenticate();
+        $admin = Admin::where("UserID",$user->UserID)->first();
+        $lists = School::orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
         $list = $lists['data'];
-        foreach ((array)$list as $index => $item)
+        $lists['data'] = collect($list)->map(function ($item) use($admin){
+            $item['UName'] = $admin->UName;
+            $item['AdminID'] = $admin->AdminID;
+            return $item;
+        })->toArray();
+        return $this->successResponse($lists);
+    }
+
+    public function listaT(Request $request)
+    {
+        $user = JWTAuth::parseToken()->authenticate();
+        $admin = Admin::where("UserID",$user->UserID)->first();
+        $err = [
+            'page'=>"required|integer",
+            'page_size'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
         {
-            $list[$index]['AcademicYear'] = $semester->AcademicYear;
-            $list[$index]['SOrder'] = $semester->SOrder;
-            $list[$index]['grade'] = $semester->AcademicYear - $item['CreatTime'] + 1;//年级号=当前学年 -班级创建时间+1
-            $list[$index]['Stucount'] = Student::where("ClassID",$item['ClassID'])->count();
-            $techer = Teacher::find($item['TID']);
-            $list[$index]['uname'] = isset($techer->UName) ? $techer->UName : '';
-            $school = School::find($item['SchoolID']);
-            $list[$index]['school'] = isset($school->SchoolName) ? $school->SchoolName : '';
+            return $this->errorResponse();
         }
-        $lists['data'] = $list;
+        $lists = Admin::where("SchoolID",$admin->SchoolID)->orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
         return $this->successResponse($lists);
     }
 
     public function tokenT(Request $request)
     {
-        $SchoolID = Admin::getSchoolId();
-        $list['scount'] = Student::where("SchoolID",$SchoolID)->count();
-        $list['tcount'] = Teacher::where("SchoolID",$SchoolID)->count();
-        $list['acount'] = $list['tcount'] + $list['scount'];
-        $list['ccount'] = Classes::where("SchoolID",$SchoolID)->count();
+        $SchoolID = User::getSchool();
+        if($SchoolID)
+        {
+            $list['scount'] = Student::where("SchoolID",$SchoolID)->count();
+            $list['tcount'] = Teacher::where("SchoolID",$SchoolID)->count();
+            $list['acount'] = $list['tcount'] + $list['scount'];
+            $list['ccount'] = Classes::where("SchoolID",$SchoolID)->count();
+            $list['schoolcount'] = 0;
+        }
+        else
+        {
+            $list['scount'] = Student::count();
+            $list['tcount'] = Teacher::count();
+            $list['acount'] = $list['tcount'] + $list['scount'];
+            $list['ccount'] = Classes::count();
+            $list['schoolcount'] = School::count();
+        }
+
         return $this->successResponse($list);
     }
 
@@ -184,7 +199,7 @@ class SchoolController extends BaseController {
             return $this->errorResponse('登陆账号重复');
         }
         $udata['LoginID'] = $request->CivilID;
-        $udata['IDLevel'] = "D";
+        $udata['IDLevel'] = "U";
         $udata['password'] = $request->password;
         if(!User::add($udata))
         {
@@ -217,7 +232,7 @@ class SchoolController extends BaseController {
 
     public function putA(Request $request) {
         $err = [
-            'SchoolID'=>"required",
+//            'SchoolID'=>"required",
             'UName'=>"required",
             'CivilID'=>"required",
             'Gender'=>"required",
@@ -247,7 +262,7 @@ class SchoolController extends BaseController {
         }
         $udata['UserID'] = $admin->UserID;
         $udata['LoginID'] = $request->CivilID;
-        $udata['IDLevel'] = "D";
+        $udata['IDLevel'] = "U";
         if(!User::add($udata))
         {
             return $this->errorResponse('失败,编号已存在');

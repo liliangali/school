@@ -1,0 +1,12 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Stuhomework extends BaseModel
+{
+    public  $table = 'stuhomework';
+    public  $primaryKey = "StuWorkNO";
+    public  $timestamps = false;//去掉update_time等三个字段
+}

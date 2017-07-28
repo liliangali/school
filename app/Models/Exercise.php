@@ -30,7 +30,7 @@ class Exercise extends Model
         libxml_disable_entity_loader(true);
         $xml= json_decode(json_encode(simplexml_load_string($CONTENT, 'SimpleXMLElement', LIBXML_NOCDATA)), true);
         $all['CONTENT'] = $xml;
-        $dir = storage_path('app/public/upload');
+        $dir = storage_path('app/public/upload/');
         $item = [];
         $ereturn = ['status'=>0,'msg'=>''];
         $sreturn = ['status'=>1,'msg'=>''];

@@ -3,7 +3,11 @@
 namespace App\Api\V1\Controllers\Teacher;
 use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
+use App\Models\Student;
+use App\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use Validator;
 
 use JWTAuth;
@@ -104,6 +108,7 @@ class TeacherController extends BaseController {
         unset($newItem['password']);
 
         $id = $this->model->addU($request,$newItem);
+        User::where("LoginID",$request->CivilID)->update(["IDLevel"=>"T"]);
         if($id)
         {
             return $this->successResponse(['id'=>$id]);
@@ -128,21 +133,21 @@ class TeacherController extends BaseController {
     }
 
     /**
-     * @SWG\Get(
-     *   path="/users/all",
-     *   summary="显示所有用户",
-     *   tags={"Users"},
-     *   @SWG\Parameter(name="Authorization", in="header", required=true, description="用户凭证", type="string"),
-     *   @SWG\Response(
-     *     response=200,
-     *     description="all users"
-     *   ),
-     *   @SWG\Response(
-     *     response="default",
-     *     description="an ""unexpected"" error"
-     *   )
-     * )
-     */
+ * @SWG\Get(
+ *   path="/users/all",
+ *   summary="显示所有用户",
+ *   tags={"Users"},
+ *   @SWG\Parameter(name="Authorization", in="header", required=true, description="用户凭证", type="string"),
+ *   @SWG\Response(
+ *     response=200,
+ *     description="all users"
+ *   ),
+ *   @SWG\Response(
+ *     response="default",
+ *     description="an ""unexpected"" error"
+ *   )
+ * )
+ */
 
     public function putT(Request $request) {
         $err = [
@@ -165,6 +170,110 @@ class TeacherController extends BaseController {
             return $this->successResponse();
         }
         return $this->errorResponse('添加失败');
+    }
+
+    /**
+     * @SWG\Get(
+     *   path="/users/all",
+     *   summary="显示所有用户",
+     *   tags={"Users"},
+     *   @SWG\Parameter(name="Authorization", in="header", required=true, description="用户凭证", type="string"),
+     *   @SWG\Response(
+     *     response=200,
+     *     description="all users"
+     *   ),
+     *   @SWG\Response(
+     *     response="default",
+     *     description="an ""unexpected"" error"
+     *   )
+     * )
+     */
+
+    public function upT(Request $request) {
+        $err = [
+            'type'=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $ClassID = $request->ClassID;
+        $type = $request->type;
+        if($type == 's' && !$ClassID)
+        {
+            return $this->errorResponse("导入学生csv文档必须传ClassID字段");
+        }
+        $dir = storage_path('app/public/upload/');
+        $pictureObj = $request->file("File");
+        $string = Carbon::now(config('app.timezone'))->timestamp.str_random(10).str_random(10).'.csv';
+        $pictureObj->move($dir, $string);
+        $fileType = mb_detect_encoding(file_get_contents($dir.$string), array('UTF-8','GBK','LATIN1','BIG5'));//获取当前文本编码格
+
+        Excel::load($dir.$string, function($reader) use($ClassID,$type) {
+            if($type == "s")
+            {
+                $model = new Student();
+            }
+            else
+            {
+                $model = new Teacher();
+            }
+            $reader->all()->map(function ($item) use($ClassID,$type,$model){
+                $i = $item->toArray();
+                if($type == "s")
+                {
+                    if(isset($i['学号']) && isset($i['座号']))
+                    {
+                        if((Student::where("SeatNO",$i['座号'])->where("ClassID",$ClassID)->first()))
+                        {
+                            return ;
+                        }
+                        if((Student::where("CivilID",$i['学号'])->first()))
+                        {
+                            return ;
+                        }
+                        $data['ClassID'] = $ClassID;
+                        $data['CivilID'] =  $i['学号'];
+                        $data['SeatNO'] = isset($i['座号']) ? $i['座号'] : 0;
+                        $data['UName'] = isset($i['学生姓名']) ? $i['学生姓名'] : '';
+                        $data['Gender'] = isset($i['性别']) ? $i['性别'] : '';
+                        $udata['LoginID'] = $data['CivilID'];
+                        $udata['password'] = 123456;
+                        $udata['IDLevel'] = "S";
+                        $user  = User::add($udata);
+                        if(isset($user->UserID))
+                        {
+                            $data['UserID'] = $user->UserID;
+                            $model->saveModel($data);
+                        }
+                    }
+                }
+                else
+                {
+                    if(isset($i['教职工账号']) && isset($i['老师姓名']))
+                    {
+                        if((Teacher::where("CivilID",$i['教职工账号'])->first()))
+                        {
+                            return ;
+                        }
+                        $data['CivilID'] =  $i['教职工账号'];
+                        $data['UName'] = isset($i['老师姓名']) ? $i['老师姓名'] : '';
+                        $data['Gender'] = isset($i['性别']) ? $i['性别'] : '';
+                        $udata['LoginID'] = $data['CivilID'];
+                        $udata['password'] = 123456;
+                        $udata['IDLevel'] = "T";
+                        $user  = User::add($udata);
+                        if(isset($user->UserID))
+                        {
+                            $data['UserID'] = $user->UserID;
+                            $model->saveModel($data);
+                        }
+                    }
+                }
+
+            });
+        },$fileType);
+        return $this->successResponse();
     }
 
 }

@@ -1,9 +1,11 @@
 <?php
 
 namespace App\Api\V1\Controllers\Auth;
+use App\Models\Admin;
 use App\Models\ChannelInfo;
 use App\Models\Exercise;
 use App\Models\Region;
+use App\Models\Student;
 use Illuminate\Support\Facades\DB;
 use Validator;
 use App\Api\V1\Controllers\BaseController;
@@ -60,10 +62,10 @@ class AuthController extends BaseController {
         $user->LoginTime = Carbon::now(config('app.timezone'))->timestamp;
         $user->LastLoginTime = Carbon::now(config('app.timezone'))->timestamp;
         $user->save();
-        if($user->IDLevel  != "U")
-        {
-            return $this->errorResponse('您不是管理员');
-        }
+//        if($user->IDLevel  != "U")
+//        {
+//            return $this->errorResponse('您不是管理员');
+//        }
         $return['token'] = $token;
         $return['IDLevel'] = $user->IDLevel;
         $return['LastLoginTime'] = $user->LastLoginTime;
@@ -163,6 +165,26 @@ class AuthController extends BaseController {
         {
             $CLASSNAME = mb_convert_encoding($res['msg'],"EUC-CN","UTF-8");
             echo  $CLASSNAME;
+        }
+    }
+    
+    public function reset()
+    {
+        $admin = Admin::get()->toArray();
+        foreach ($admin as $index => $item)
+        {
+            $UserID = $item['UserID'];
+            $user = User::find($UserID);
+            if(!$user)
+            {
+                Admin::where("UserID",$UserID)->delete();
+            }
+            $user->IDLevel = "U";
+            if($user->LoginID != $item['CivilID'])
+            {
+                $user->LoginID = $item['CivilID'];
+            }
+            $user->save();
         }
     }
 

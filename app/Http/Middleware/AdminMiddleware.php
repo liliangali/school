@@ -16,10 +16,15 @@ class AdminMiddleware
     public function handle($request, Closure $next)
     {
         $user = JWTAuth::parseToken()->authenticate();
-        $response = ['error'=>'token_expired'];
-        if($user->user_id != 1)
+        if(!$user)
         {
-            return response()->json($response)->setStatusCode(401);
+            return response()->json(['error'=>'token_expired'])->setStatusCode(401);
+        }
+        $response = ['state'=>'0','msg'=>"只有管理员生可以操作"];
+
+        if($user->IDLevel != "U")
+        {
+            return response()->json($response);
         }
         return $next($request);
     }
