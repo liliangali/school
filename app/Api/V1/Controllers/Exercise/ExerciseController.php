@@ -72,9 +72,6 @@ class ExerciseController extends BaseController {
         {
             return $this->successResponse($lists);
         }
-//echo '<pre>';print_r($list);exit;
-
-        //CourseID
         $teacher = Helper::getKeyList(new Teacher(),$list);
         $course =  Helper::getKeyList(new Course(),$list);
         $list = collect($list)->map(function ($item,$key) use ($teacher,$course){
@@ -143,6 +140,46 @@ class ExerciseController extends BaseController {
             return $item;
         })->toArray();
         return $this->successResponse($eitem_list);
+    }
+    public function getIT(Request $request)
+    {
+        $err = [
+            'ExNO'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $exercise = Exercise::find($request->ExNO);
+        if(!$exercise)
+        {
+            return $this->errorResponse('活动不存在');
+        }
+        $sen = Semester::find($exercise->SNO);
+        $class = Classes::find($exercise->ClassID);
+        $teacher = Teacher::find($class->TID);
+        $QNumber= Exerciseitem::where("ExNO",$request->ExNO)->get()->count();
+        $anlist = Answerinfo::where("ExNO",$request->ExNO)->get();
+        $stunum = $anlist->groupBy("StuID")->count();
+        $stutotal = $anlist->sum("Score");
+        $stu_list = Student::where("ClassID",$exercise->ClassID)->get()->count();
+        $AvgScore = 0;
+        if($stu_list > 0 )
+        {
+            $AvgScore =  number_format($stutotal/$stu_list,2);
+        }
+        $return['AcademicYear'] = $sen->AcademicYear;
+        $return['SOrder'] = $sen->SOrder;
+        $return['Grade'] = $sen->AcademicYear - $class['CreatTime'] + 1;//年级号=当前学年 -班级创建时间+1;
+        $return['ClassName'] = $class->ClassName;
+        $return['UName'] = $teacher->UName;
+        $return['QNumber'] = $QNumber;
+        $return['Stucount'] = $stunum;
+        $return['TrueRate'] =  Exercise::getRate($request->ExNO);
+        $return['AvgScore'] = $AvgScore;
+        $return['ExName'] = $exercise->ExName;
+        return $this->successResponse($return);
+
     }
 
     public function listST(Request $request)

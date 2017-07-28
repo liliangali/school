@@ -11,3 +11,4 @@ $api->get('/exgetst', 'Exercise\ExerciseController@getST');
 $api->get('/exgetat', 'Exercise\ExerciseController@getAT');
 $api->get('/exer', 'Exercise\ExerciseController@listT');
 $api->get('/exer', 'Exercise\ExerciseController@listT');
+$api->get('/exergeti', 'Exercise\ExerciseController@getIT');

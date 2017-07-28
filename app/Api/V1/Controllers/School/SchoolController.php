@@ -59,8 +59,8 @@ class SchoolController extends BaseController {
         $lists = School::orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
         $list = $lists['data'];
         $lists['data'] = collect($list)->map(function ($item) use($admin){
-            $item['UName'] = $admin->UName;
-            $item['AdminID'] = $admin->AdminID;
+//            $item['UName'] = $admin->UName;
+//            $item['AdminID'] = $admin->AdminID;
             return $item;
         })->toArray();
         return $this->successResponse($lists);
@@ -68,8 +68,6 @@ class SchoolController extends BaseController {
 
     public function listaT(Request $request)
     {
-        $user = JWTAuth::parseToken()->authenticate();
-        $admin = Admin::where("UserID",$user->UserID)->first();
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
@@ -78,7 +76,16 @@ class SchoolController extends BaseController {
         {
             return $this->errorResponse();
         }
-        $lists = Admin::where("SchoolID",$admin->SchoolID)->orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+        $user = JWTAuth::parseToken()->authenticate();
+        if($user == "U")
+        {
+            $admin = Admin::where("UserID",$user->UserID)->first();
+            $lists = Admin::where("SchoolID",$admin->SchoolID)->orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+        }
+        else
+        {
+            $lists = Admin::orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+        }
         return $this->successResponse($lists);
     }
 
@@ -156,7 +163,9 @@ class SchoolController extends BaseController {
         {
             return $this->errorResponse();
         }
-        School::insert($request->all());
+        $all = $request->all();
+        unset($all['token']);
+        School::insert($all);
         return $this->successResponse();
     }
 

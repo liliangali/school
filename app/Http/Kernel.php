@@ -57,5 +57,6 @@ class Kernel extends HttpKernel
         'api.student' => \App\Http\Middleware\StudentCheck::class,
         'api.at' => \App\Http\Middleware\ATtudentCheck::class,
         'api.sadmin' => \App\Http\Middleware\SadminMiddleware::class,
+        'api.asdmin' => \App\Http\Middleware\AsdminMiddleware::class,
     ];
 }

@@ -6,6 +6,8 @@ use App\Models\ChannelInfo;
 use App\Models\Exercise;
 use App\Models\Region;
 use App\Models\Student;
+use App\Models\SysAdmin;
+use App\Models\Teacher;
 use Illuminate\Support\Facades\DB;
 use Validator;
 use App\Api\V1\Controllers\BaseController;
@@ -185,6 +187,16 @@ class AuthController extends BaseController {
                 $user->LoginID = $item['CivilID'];
             }
             $user->save();
+        }
+
+        $user = User::get()->toArray();
+        foreach ($user as $index => $item)
+        {
+            $UserID = $item['UserID'];
+            if(!(Student::where("UserID",$UserID)->first()) && !(Teacher::where("UserID",$UserID)->first()) && !(Admin::where("UserID",$UserID)->first()) && !(SysAdmin::where("UserID",$UserID)->first()))
+            {
+                User::where("UserID",$UserID)->delete();
+            }
         }
     }
 

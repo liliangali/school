@@ -341,6 +341,31 @@ class Exercise extends Model
         return 0.00;
     }
 
+    public static function getAllRate($ExNO)
+    {
+        //=====  答对率  =====
+        $answerinfo = Answerinfo::where("ExNO",$ExNO)->get()->toArray();
+        $exerciseitem = collect(Exerciseitem::where("ExNO",$ExNO)->get()->toArray())->keyBy('ItemIndex')->all();
+        $dati_num = 0;
+        $dadui_num = 0;
+        foreach ((array)$answerinfo as $index1 => $item1)
+        {
+            if($item1['Selection'])
+            {
+                if($item1['Score'] == $exerciseitem[$item1['ItemIndex']]['Point'])
+                {
+                    $dadui_num++;
+                }
+                $dati_num++;
+            }
+        }
+        if($dati_num)
+        {
+            return  number_format($dadui_num/$dati_num,2);
+        }
+        return 0.00;
+    }
+
 
     /**
      * @param $ExNO
