@@ -10,6 +10,7 @@ use App\Models\Exerciseitem;
 use App\Models\School;
 use App\Models\Semester;
 use App\Models\Student;
+use App\User;
 use Illuminate\Http\Request;
 use Validator;
 
@@ -55,7 +56,7 @@ class ClassesController extends BaseController {
         }
         $sarr  = [];
         $semester = Semester::getLast();
-        $sarr[] = ['SchoolID', Admin::getSchoolId()];
+        $sarr[] = ['SchoolID', User::getSchool()];
         if(isset($request->CreatTime) && $request->CreatTime)
         {
             $CreatTime =  $semester->AcademicYear - $request->CreatTime + 1;
