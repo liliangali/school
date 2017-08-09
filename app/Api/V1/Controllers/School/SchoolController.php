@@ -76,16 +76,25 @@ class SchoolController extends BaseController {
         {
             return $this->errorResponse();
         }
+        $SchoolID = isset($request->SchoolID) ? $request->SchoolID : 0;
         $user = JWTAuth::parseToken()->authenticate();
-        if($user == "U")
+        if($SchoolID)
         {
-            $admin = Admin::where("UserID",$user->UserID)->first();
-            $lists = Admin::where("SchoolID",$admin->SchoolID)->orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+            $lists = Admin::where("SchoolID",$SchoolID)->orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
         }
         else
         {
-            $lists = Admin::orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+            if($user == "U")
+            {
+                $admin = Admin::where("UserID",$user->UserID)->first();
+                $lists = Admin::where("SchoolID",$admin->SchoolID)->orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+            }
+            else
+            {
+                $lists = Admin::orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+            }
         }
+
         return $this->successResponse($lists);
     }
 
@@ -187,7 +196,6 @@ class SchoolController extends BaseController {
      */
 
     public function addA(Request $request) {
-
         $err = [
             'SchoolID'=>"required",
             'UName'=>"required",
@@ -207,6 +215,8 @@ class SchoolController extends BaseController {
         {
             return $this->errorResponse('登陆账号重复');
         }
+
+        
         $udata['LoginID'] = $request->CivilID;
         $udata['IDLevel'] = "U";
         $udata['password'] = $request->password;
@@ -349,6 +359,60 @@ class SchoolController extends BaseController {
         //=====   删除class 和活动表 =====
         Exercise::delByClassID($SchoolID);
         School::where("SchoolID",$SchoolID)->delete();
+        return $this->successResponse();
+    }
+    
+    public function semesterT(Request $request)
+    {
+        $SchoolID = User::getSchool();
+        if(!$SchoolID)
+        {
+            return $this->errorResponse('学校失败');
+        }
+        $AcademicYear = date("Y");
+        $m = date("n");
+        if($m >= 9 && $m <= 12) //上学期
+        {
+            $SOrder = "上";
+        }
+        else
+        {
+            $SOrder = "下";
+        }
+        $data['SchoolID'] = $SchoolID;
+        $data['AcademicYear'] = $AcademicYear;
+        $data['SOrder'] = $SOrder;
+        if(Semester::where($data)->first())
+        {
+            return $this->errorResponse('学期已经创建成功,不可重复创建');
+        }
+        $se_id = Semester::insertGetId($data);
+        if(!$se_id)
+        {
+            return $this->errorResponse('学期创建失败');
+        }
+        $se_list = Semester::where("SchoolID",$SchoolID)->orderBy("SNO","DESC")->get()->toArray();
+        $lastt = isset($se_list[1]) ? $se_list[1] : [];
+        if(!$lastt)
+        {
+            return $this->successResponse();
+        }
+        $l_se_id = $se_list[1]['SNO'];
+        $course_list = Course::where("SchoolID",$SchoolID)->where("SNO",$l_se_id)->get();
+        if(!$course_list)
+        {
+            return $this->successResponse();
+        }
+        $couse = new Course();
+        $course_list->map(function ($item) use ($couse,$se_id){
+            $data['TID'] = $item['TID'];
+            $data['ClassID'] = $item['ClassID'];
+            $data['CourseName'] = $item['CourseName'];
+            $data['SchoolID'] = $item['SchoolID'];
+            $data['TID'] = $item['TID'];
+            $data['SNO'] = $se_id;
+            $couse->insert($data);
+        });
         return $this->successResponse();
     }
 

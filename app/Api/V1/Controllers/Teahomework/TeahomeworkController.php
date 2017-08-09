@@ -50,13 +50,35 @@ class TeahomeworkController extends BaseController {
             'page'=>"required|integer",
             'page_size'=>"required|integer",
             'ClassID'=>"required|integer",
-            'SNO'=>"required|integer",
+            'AcademicYear'=>"required",
+            'SOrder'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
-        $lists = Teahomework::where('ClassID',$request->ClassID)->where('SNO',$request->SNO)->orderBy('HomeWorkNO', 'desc')->paginate($request->page_size)->toArray();
+
+        $user = JWTAuth::parseToken()->authenticate();
+
+        //=====  获取学期SNO  =====
+        $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->first();
+        if(!$semester)
+        {
+            return $this->errorResponse('学期不存在');
+        }
+        $where['SNO']  = $semester->SNO;
+        $where['ClassID']  = $request->ClassID;
+        if($user->IDLevel == "T")
+        {
+            $teacher = Teacher::where("UserID",$user->UserID)->first();
+            $where['TID'] = $teacher->TID;
+        }
+
+        $lists = Teahomework::where($where)->where('SNO',$semester->SNO)->orderBy('HomeWorkNO', 'desc')->paginate($request->page_size)->toArray();
+        $lists['data'] = collect($lists['data'])->map(function ($item){
+            $item['SubmitCount'] = Stuhomework::where("HomeWorkNO",$item['HomeWorkNO'])->where("Status",1)->count();
+            return $item;
+        })->toArray();
         return $this->successResponse($lists);
     }
 

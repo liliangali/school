@@ -5,6 +5,7 @@ use App\Models\Admin;
 use App\Models\ChannelInfo;
 use App\Models\Exercise;
 use App\Models\Region;
+use App\Models\Semester;
 use App\Models\Student;
 use App\Models\SysAdmin;
 use App\Models\Teacher;
@@ -64,11 +65,49 @@ class AuthController extends BaseController {
         $user->LoginTime = Carbon::now(config('app.timezone'))->timestamp;
         $user->LastLoginTime = Carbon::now(config('app.timezone'))->timestamp;
         $user->save();
-//        if($user->IDLevel  != "U")
-//        {
-//            return $this->errorResponse('您不是管理员');
-//        }
+        $SchoolID = 0;
+        if($user->IDLevel == "T")
+        {
+            $item = Teacher::where("UserID",$user->UserID)->first();
+            if($item)
+            {
+                $SchoolID = $item->SchoolID;
+            }
+        }
+        elseif ($user->IDLevel == "S")
+        {
+            $item = Student::where("UserID",$user->UserID)->first();
+            if($item)
+            {
+                $SchoolID =  $item->SchoolID;
+            }
+        }
+        elseif ($user->IDLevel == "U")
+        {
+            $item = Admin::where("UserID",$user->UserID)->first();
+            if($item)
+            {
+                $SchoolID = $item->SchoolID;
+            }
+        }
+        $SNO = 0;
+        $AcademicYear = '';
+        $SOrder = '';
+        if($SchoolID)
+        {
+            $se = Semester::where("SchoolID",$SchoolID)->orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
+            if($se)
+            {
+                $SNO = $se->SNO;
+                $AcademicYear = $se->AcademicYear;
+                $SOrder = $se->SOrder;
+            }
+        }
+
         $return['token'] = $token;
+        $return['SNO'] = $SNO;
+        $return['AcademicYear'] = $AcademicYear;
+        $return['SOrder'] = $SOrder;
         $return['IDLevel'] = $user->IDLevel;
         $return['LastLoginTime'] = $user->LastLoginTime;
         return $this->successResponse($return);
@@ -198,6 +237,18 @@ class AuthController extends BaseController {
                 User::where("UserID",$UserID)->delete();
             }
         }
+    }
+    
+    public function getF()
+    {
+        $client = new Client();
+        $response = $client->post("http://081684.com/api/pk10/getBaseList.php?lottObj=");
+        $code = $response->getStatusCode(); // 200
+//        echo '<pre>';print_r($code);exit;
+        
+        $body = $response->getBody()->getContents();
+        return $body;
+        
     }
 
 }

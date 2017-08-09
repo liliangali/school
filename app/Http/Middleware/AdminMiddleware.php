@@ -20,7 +20,7 @@ class AdminMiddleware
         {
             return response()->json(['error'=>'token_expired'])->setStatusCode(401);
         }
-        $response = ['state'=>'0','msg'=>"只有管理员生可以操作"];
+        $response = ['state'=>'0','msg'=>"只有管理员可以操作"];
 
         if($user->IDLevel != "U")
         {

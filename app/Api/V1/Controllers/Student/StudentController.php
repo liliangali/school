@@ -152,7 +152,6 @@ class StudentController extends BaseController {
     public function putT(Request $request) {
         $err = [
             'StuID'=>"required",
-            'ClassID'=>"required|max:255",
             'CivilID'=>"required",
             'SeatNO'=>"required",
             'password'=>"max:12|min:6",

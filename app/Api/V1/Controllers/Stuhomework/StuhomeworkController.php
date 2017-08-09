@@ -85,15 +85,17 @@ class StuhomeworkController extends BaseController {
             return $this->errorResponse();
         }
         $info = $this->model->where("HomeWorkNO",$request->HomeWorkNO)->where("StuID",$student->StuID)->first();
-        $home = Teahomework::find($request->HomeWorkNO);
-        $info['HomeWorkTitle'] = $home->HomeWorkTitle;
-        $info['HomeWorkTitle'] = $home->HomeWorkTitle;
-        $info['HomeWorkTitle'] = $home->HomeWorkTitle;
+
         if(!$info)
         {
             return $this->errorResponse("无此作业");
         }
-        return $this->successResponse($info->toArray());
+        $info = $info->toArray();
+        $home = Teahomework::find($request->HomeWorkNO);
+        $info['HomeWorkTitle'] = $home->HomeWorkTitle;
+        $info['HomeWorkTitle'] = $home->HomeWorkTitle;
+        $info['HomeWorkTitle'] = $home->HomeWorkTitle;
+        return $this->successResponse($info);
     }
 
     /**

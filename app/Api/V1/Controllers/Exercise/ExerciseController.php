@@ -55,18 +55,36 @@ class ExerciseController extends BaseController {
             'page'=>"required|integer",
             'page_size'=>"required|integer",
             'ClassID'=>"required|integer",
+            'AcademicYear'=>"required",
+            'SOrder'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
+
+        //=====  获取学期SNO  =====
+        $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->first();
+        if(!$semester)
+        {
+            return $this->errorResponse('学期不存在');
+        }
+        $where['SNO']  = $semester->SNO;
+        $user = JWTAuth::parseToken()->authenticate();
+        $where['ClassID']  = $request->ClassID;
+        if($user->IDLevel == "T")
+        {
+            $teacher = Teacher::where("UserID",$user->UserID)->first();
+            $where['TID'] = $teacher->TID;
+        }
+
         $class = Classes::find($request->ClassID);
         if(!$class)
         {
             return $this->errorResponse('班级不存在');
         }
 
-        $lists = Exercise::where("ClassID",$request->ClassID)->orderBy('ExNO', 'desc')->paginate($request->page_size)->toArray();
+        $lists = Exercise::where($where)->orderBy('ExNO', 'desc')->paginate($request->page_size)->toArray();
         $list = $lists['data'];
         if(!$list)
         {

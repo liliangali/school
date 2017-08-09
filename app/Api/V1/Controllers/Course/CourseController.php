@@ -8,6 +8,7 @@ use App\Models\Course;
 use App\Models\School;
 use App\Models\Semester;
 use App\Models\Student;
+use App\User;
 use Illuminate\Http\Request;
 use Validator;
 
@@ -94,6 +95,7 @@ class CourseController extends BaseController {
             $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->first();
             if(!$semester)
             {
+                return $this->errorResponse('当前学年不存在');
                 $semester = Semester::getAuthLast();
             }
         }
@@ -102,8 +104,6 @@ class CourseController extends BaseController {
             $semester = Semester::getAuthLast();
         }
         $Teacher =Teacher::where("SchoolID",$semester->SchoolID)->get()->keyBy("TID")->toArray();
-//        echo '<pre>';print_r($Teacher);exit;
-//        $course = ;//该学期下的所有课程
         $course = Course::where("SNO",$semester->SNO)->get()->map(function ($item) use($Teacher) {
              $item['UName'] = '';
             if(isset($Teacher[$item['TID']]))
@@ -112,38 +112,14 @@ class CourseController extends BaseController {
             }
             return $item;
         })->groupBy("CourseName")->keys()->toArray();
-
-//echo '<pre>';print_r($cou->toArray());exit;
-//echo '<pre>';print_r($course);exit;
-
-//        $course = collect(collect(Course::where("SNO",$semester->SNO)->get()->toArray()->map(function ($item) use($Teacher){
-//            $item['UName'] = '';
-//            if(isset($Teacher[$item['TID']]))
-//            {
-//                $item['UName'] = $Teacher[$item['TID']]['UName'];
-//            }
-//            return $item;
-//        })->toArray())->get())->groupBy("ClassID")->toArray();
-
-
         $AcademicYear = $semester->AcademicYear;
-
         $class = Classes::where("SchoolID",$semester->SchoolID)->get()->groupBy('CreatTime')->toArray();
-//echo '<pre>';print_r($class);exit;
-
         $grade_list = [];
+        $AcademicYear = date("Y");
         foreach ((array)$class as $index => $item)//按照年级来分组整理所有的班级
         {
             $grade  = $AcademicYear -  $index + 1;
-//            $grade_list[$grade];
             $grade_list[$grade]['grade'] = $grade;
-            //=====  取得年级下的所有班级的主键  =====
-//            $classIdArr = collect($item)->pluck('ClassID');
-//            $grade_list[$grade]['grade'] = $grade;
-            $gra = [];
-            //$semester->AcademicYear - $item['CreatTime'] + 1;//年级号=当前学年 -班级创建时间+1
-
-//            $gra['grade'] = $grade;
             $gr = [];
             $course_a = [];//这样得出年级下所有班级的所有课程
             foreach ($item as $index1 => $item1)//该年级下的所有班级
@@ -158,7 +134,6 @@ class CourseController extends BaseController {
                     if(!($cu_Info))
                     {
                         $i['UName'] = "";
-
                     }
                     else
                     {
@@ -168,49 +143,12 @@ class CourseController extends BaseController {
                 }
 
                 $item1['Course'] = $b;
-//                $item1['Course'] = isset($course[$item1['ClassID']]) ? $course[$item1['ClassID']] : '';
-//                 if(isset($course[$item1['ClassID']]))
-//                 {
-//                     $course_a = array_merge($course_a,$course[$item1['ClassID']]);
-//                 }
-//                $ClassID = $item1['ClassID'];
-//                $course = Course::where("ClassID",$ClassID)->get();
-//                foreach ((array)$course as $index2 => $item3)
-//                {
-//
-//                }
-//                $gr[] = $item1;
                 $grade_list[$grade]['class_list'][] = $item1;
 
             }
             $grade_list[$grade]['course_list'] = $course;
-//            echo '<pre>';print_r($course_a);exit;
-            
-//            $gra['ga'] = $gr;
-//            $gra['Class'][] = $item;
-            //Course
-
-
         }
         return $this->successResponse(array_values($grade_list));
-        echo '<pre>';print_r($grade_list);exit;
-        
-        $semester = $semester->toArray();
-        $semester['gradlist'] = $grade_list;
-        return $this->successResponse($semester);
-echo '<pre>';print_r($grade_list);exit;
-
-
-
-        $lists = Course::where('SNO',$semester->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
-        $list = $lists['data'];
-        foreach ((array)$list as $index => $item)
-        {
-            $teacher = Teacher::find($item['TID']);
-            $list[$index]['UName'] = isset($teacher->UName) ? $teacher->UName : '';
-        }
-        $lists['data'] = $list;
-        return $this->successResponse($lists);
     }
     public function listIT(Request $request)
     {
@@ -238,6 +176,7 @@ echo '<pre>';print_r($grade_list);exit;
             'page_size'=>"required|integer",
             'SchoolID'=>"required|integer",
         ];
+        $SchoolID = User::getSchool();
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
@@ -255,7 +194,7 @@ echo '<pre>';print_r($grade_list);exit;
         {
             $semester = Semester::first();
         }
-        $lists = Course::where('SchoolID',$request->SchoolID)->where('SNO',$semester->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
+        $lists = Course::where('SchoolID',$SchoolID)->where('SNO',$semester->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
         $list = $lists['data'];
         foreach ((array)$list as $index => $item)
         {
@@ -283,6 +222,14 @@ echo '<pre>';print_r($grade_list);exit;
      */
 
     public function addT(Request $request) {
+        
+ 
+//        $ClassID = [52,45];
+//        $course = [['TID'=>8,'CourseName'=>'语文课'],['TID'=>13,'CourseName'=>'数学课']];
+//        $a = json_encode($ClassID);
+//
+//        echo '<pre>';print_r(json_encode($course));exit;
+        
         $err = [
             'ClassID'=>"required",
             'course'=>"required",
@@ -301,8 +248,9 @@ echo '<pre>';print_r($grade_list);exit;
 //            return $this->errorResponse("此老师ID不存在");
 //        }
         $seme = Semester::getAuthLast();
-        $ClassID = json_decode($request->ClassID,1);
-        $course = json_decode($request->course,1);
+
+        $ClassID = $request->ClassID;
+        $course = $request->course;
         if(!$ClassID || !$course)
         {
             return $this->errorResponse("ClassID和Course 必须是json形式的数组格式");
@@ -317,7 +265,6 @@ echo '<pre>';print_r($grade_list);exit;
                 $adata['TID'] = $item1['TID'];
                 $this->model->saveModel($adata);
             }
-
         }
 
         return $this->successResponse();
