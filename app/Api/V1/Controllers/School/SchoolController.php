@@ -167,6 +167,7 @@ class SchoolController extends BaseController {
             'SchoolCode'=>"required|unique:school",
             'Address'=>"required",
             'Telephone'=>"required",
+            'Type'=>"required",
         ];
         if($this->validateResponse($request,$err,['unique' => '学校编号号已经注册!请勿重复添加']))
         {
@@ -377,6 +378,7 @@ class SchoolController extends BaseController {
         }
         else
         {
+            $AcademicYear = $AcademicYear-1;
             $SOrder = "下";
         }
         $data['SchoolID'] = $SchoolID;

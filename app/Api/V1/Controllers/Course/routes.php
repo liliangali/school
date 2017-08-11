@@ -11,3 +11,4 @@ $api->get('/courses', 'Course\CourseController@listST');
 $api->post('/course', 'Course\CourseController@addT');
 $api->post('/courses', 'Course\CourseController@putT');
 $api->delete('/course', 'Course\CourseController@delT');
+$api->get('/semesterli', 'Course\CourseController@slistT');

@@ -42,6 +42,20 @@ class CourseController extends BaseController {
     {
         $this->model = new Course();
     }
+
+    public function slistT(Request $request)
+    {
+        $err = [
+            'page'=>"required|integer",
+            'page_size'=>"required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $selist = Semester::where("SchoolID",User::getSchool())->paginate($request->page_size)->toArray();
+        return $selist;
+    }
     public function listT(Request $request)
     {
         $err = [
@@ -83,16 +97,17 @@ class CourseController extends BaseController {
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
+            'grade'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
-
+        $SchoolID = User::getSchool();
         //=====  获取最新学年  =====
         if($request->AcademicYear && $request->SOrder)
         {
-            $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->first();
+            $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->where("SchoolID",$SchoolID)->first();
             if(!$semester)
             {
                 return $this->errorResponse('当前学年不存在');
@@ -116,9 +131,15 @@ class CourseController extends BaseController {
         $class = Classes::where("SchoolID",$semester->SchoolID)->get()->groupBy('CreatTime')->toArray();
         $grade_list = [];
         $AcademicYear = date("Y");
+
         foreach ((array)$class as $index => $item)//按照年级来分组整理所有的班级
         {
-            $grade  = $AcademicYear -  $index + 1;
+            $grade = $AcademicYear -  $index + 1;
+            $grade = Semester::getGrade($semester->SchoolID,$grade);
+            if($request->grade != $grade)
+            {
+                continue;
+            }
             $grade_list[$grade]['grade'] = $grade;
             $gr = [];
             $course_a = [];//这样得出年级下所有班级的所有课程
@@ -272,20 +293,18 @@ class CourseController extends BaseController {
 
     public function putT(Request $request) {
         $err = [
-            'TID'=>"required",
-            'CourseID'=>"required",
+            'courses'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
-        $TID = json_decode($request->TID,1);
-        $CourseID = json_decode($request->CourseID,1);
-        foreach ((array)$CourseID as $index => $item)
+//        $TID = json_decode($request->TID,1);
+//        $CourseID = json_decode($request->CourseID,1);
+        $courses = $request->courses;
+        foreach ((array)$courses as $index => $item)
         {
-            $adata['TID'] = $item;
-            $adata['CourseID'] = $CourseID[$index];
-            $this->model->saveModel($adata);
+            $this->model->saveModel($item);
         }
         return $this->successResponse();
     }

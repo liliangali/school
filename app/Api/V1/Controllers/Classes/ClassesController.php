@@ -58,8 +58,10 @@ class ClassesController extends BaseController {
         $user = JWTAuth::parseToken()->authenticate();
         $sarr  = [];
         $lists = [];
-        $semester = Semester::getLast();
-        $sarr[] = ['SchoolID', User::getSchool()];
+        $semester = Semester::getAuthLast();
+        $SchoolID = User::getSchool();
+
+        $sarr[] = ['SchoolID', $SchoolID];
         if(isset($request->CreatTime) && $request->CreatTime)
         {
             $CreatTime =  $semester->AcademicYear - $request->CreatTime + 1;
@@ -92,13 +94,13 @@ class ClassesController extends BaseController {
             $lists = Classes::where($sarr)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
         }
 
-
         $list = $lists['data'];
         foreach ((array)$list as $index => $item)
         {
             $list[$index]['AcademicYear'] = $semester->AcademicYear;
             $list[$index]['SOrder'] = $semester->SOrder;
-            $list[$index]['grade'] = $semester->AcademicYear - $item['CreatTime'] + 1;//年级号=当前学年 -班级创建时间+1
+            $grade = $semester->AcademicYear - $item['CreatTime'] + 1;
+            $list[$index]['grade'] = Semester::getGrade($item['SchoolID'],$grade);//年级号=当前学年 -班级创建时间+1
             $list[$index]['Stucount'] = Student::where("ClassID",$item['ClassID'])->count();
             $list[$index]['ExNum'] = 0;
             $list[$index]['ExItemNum'] = 0;
