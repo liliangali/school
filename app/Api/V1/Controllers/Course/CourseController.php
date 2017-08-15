@@ -8,6 +8,7 @@ use App\Models\Course;
 use App\Models\School;
 use App\Models\Semester;
 use App\Models\Student;
+use App\Models\Subject;
 use App\User;
 use Illuminate\Http\Request;
 use Validator;
@@ -45,28 +46,49 @@ class CourseController extends BaseController {
 
     public function slistT(Request $request)
     {
-        $err = [
-            'page'=>"required|integer",
-            'page_size'=>"required|integer",
-        ];
-        if($this->validateResponse($request,$err))
+        $schoolInfo = School::find(User::getSchool());
+        $grade1 = ['一','二','三','四','五','六'];
+        $grade2 = ['初一','初二','初三'];
+        $grade3 = ['高一','高二','高三'];
+        if($schoolInfo['Type'] == 1)
         {
-            return $this->errorResponse();
+            $grade = $grade1;
         }
-        $selist = Semester::where("SchoolID",User::getSchool())->paginate($request->page_size)->toArray();
-        return $selist;
+        elseif ($schoolInfo['Type'] == 2)
+        {
+            $grade = $grade2;
+        }
+        elseif ($schoolInfo['Type'] == 3)
+        {
+            $grade = $grade3;
+        }
+        elseif ($schoolInfo['Type'] == 4)
+        {
+            $grade = array_merge($grade1,$grade2);
+        }
+        elseif ($schoolInfo['Type'] == 5)
+        {
+            $grade = array_merge($grade1,$grade2,$grade3);
+        }
+        elseif ($schoolInfo['Type'] == 6)
+        {
+            $grade = array_merge($grade2,$grade3);
+        }
+        return $this->successResponse($grade);
     }
     public function listT(Request $request)
     {
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
-            'ClassID'=>"required|integer",
+//            'ClassID'=>"required|integer",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
+        $subject = Subject::paginate($request->page_size)->toArray();
+        return $this->successResponse($subject);
 
         if($request->AcademicYear && $request->SOrder)
         {
@@ -84,7 +106,6 @@ class CourseController extends BaseController {
         $list = $lists['data'];
         foreach ((array)$list as $index => $item)
         {
-
             $teacher = Teacher::find($item['TID']);
             $list[$index]['UName'] = isset($teacher->UName) ? $teacher->UName : '';
         }
@@ -97,7 +118,7 @@ class CourseController extends BaseController {
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
-            'grade'=>"required",
+//            'grade'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
@@ -136,7 +157,7 @@ class CourseController extends BaseController {
         {
             $grade = $AcademicYear -  $index + 1;
             $grade = Semester::getGrade($semester->SchoolID,$grade);
-            if($request->grade != $grade)
+            if(isset($request->grade ) && ($request->grade != $grade))
             {
                 continue;
             }
@@ -158,7 +179,7 @@ class CourseController extends BaseController {
                     }
                     else
                     {
-                        $i['UName'] = $Teacher[$cu_Info->TID]['UName'];
+                        $i['UName'] = isset($Teacher[$cu_Info->TID]) ? $Teacher[$cu_Info->TID]['UName'] : '';
                     }
                     $b[] = $i;
                 }
@@ -195,7 +216,6 @@ class CourseController extends BaseController {
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
-            'SchoolID'=>"required|integer",
         ];
         $SchoolID = User::getSchool();
         if($this->validateResponse($request,$err))
@@ -312,18 +332,24 @@ class CourseController extends BaseController {
     public function delT(Request $request)
     {
         $err = [
-            $this->model->primaryKey=>"required",
+//            $this->model->primaryKey=>"required",
+            "ClassID"=>"required",
+            "CourseName"=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
-
-        if($this->model->del($request))
+        $item = Course::where("ClassID",$request->ClassID)->where("CourseName",$request->CourseName)->first();
+        if(!$item)
         {
-            return $this->successResponse();
+            return $this->errorResponse('此课程不存在');
         }
-        return $this->errorResponse('删除失败');
+        if($item)
+        {
+            $item->delete();
+        }
+        return $this->successResponse('删除成功');
     }
 
 

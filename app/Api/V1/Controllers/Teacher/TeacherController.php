@@ -60,17 +60,17 @@ class TeacherController extends BaseController {
 
     public function getT(Request $request)
     {
-        $err = [
-            'TID'=>"required",
-        ];
-        if($this->validateResponse($request,$err))
+        $user = JWTAuth::parseToken()->authenticate();
+        if($user->IDLevel == "T")
         {
-            return $this->errorResponse();
+            $teacher = Teacher::where("UserID",$user->UserID)->first();
+            $TID = $teacher->TID;
         }
-        return $this->successResponse($this->model->find($request->TID)->toArray());
-        $err = [
-            'TID'=>"required",
-        ];
+        else
+        {
+            $TID = $request->TID;
+        }
+        return $this->successResponse($this->model->find($TID)->toArray());
     }
 
     /**

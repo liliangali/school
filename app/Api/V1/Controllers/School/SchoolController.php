@@ -204,9 +204,7 @@ class SchoolController extends BaseController {
             'Gender'=>"required",
             'Phone'=>"required",
             'Email'=>"required",
-            'Address'=>"required",
             'password' => 'required|max:12|min:6',
-            'Birthday'=>"required",
         ];
         if($this->validateResponse($request,$err,['unique' => '学校编号号已经注册!请勿重复添加']))
         {

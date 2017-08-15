@@ -205,20 +205,41 @@ class ExerciseController extends BaseController {
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
-            'StuID'=>"required|integer",
+            'AcademicYear'=>"required",
+            'SOrder'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
+        $user = JWTAuth::parseToken()->authenticate();
+        if($user->IDLevel == "S")
+        {
+            $stu = Student::where("UserID",$user->UserID)->first();
+            $StuID = $stu->StuID;
+        }
+        else
+        {
+            $StuID = $request->StuID;
+        }
+        if(!$StuID)
+        {
+            return $this->errorResponse("缺少StuID字段");
+        }
+        $semester = Semester::getSe($request->AcademicYear,$request->SOrder);
+        if(!$semester)
+        {
+            return $this->errorResponse("年级不存在");
+        }
+
         $student = Student::find($request->StuID);
         if(!$student)
         {
             return $this->errorResponse('班级不存在');
         }
-        $an_list = Answerinfo::where("StuID",$request->StuID)->get()->toArray();
+        $an_list = Answerinfo::where("StuID",$StuID)->get()->toArray();
         $ExNO = collect($an_list)->pluck('ExNO');//所有活动
-        $semester = Semester::getLast();
+
         $lists = Exercise::where("SNO",$semester->SNO)->whereIn("ExNO",$ExNO)->orderBy('ExNO', 'desc')->paginate($request->page_size)->toArray();
         $list = $lists['data'];
         if(!$list)
@@ -252,7 +273,6 @@ class ExerciseController extends BaseController {
         $user = JWTAuth::parseToken()->authenticate();
         $err = [
             'ExNO'=>"required|integer",
-//            'StuID'=>"required|integer",
         ];
         if($user->IDLevel == "S")
         {

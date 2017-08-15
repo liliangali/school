@@ -12,8 +12,13 @@ class Semester extends BaseModel
 
     public static function getLast()
     {
-        return Semester::orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->orderBy("SNO","DESC")->first();
+        return Semester::orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
 //        return Semester::where("SchoolID",User::getSchool())->orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
+    }
+
+    public static function getSe($AcademicYear,$SOrder)
+    {
+        return Semester::where("AcademicYear",$AcademicYear)->where("SOrder",$SOrder)->where("SchoolID",User::getSchool())->orderBy("AcademicYear","DESC")->orderBy("SNO","DESC")->first();
     }
 
     public static function getAuthLast()

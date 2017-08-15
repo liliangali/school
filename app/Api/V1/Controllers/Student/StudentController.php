@@ -56,14 +56,22 @@ class StudentController extends BaseController {
 
     public function getT(Request $request)
     {
-        $err = [
-            'StuID'=>"required",
-        ];
-        if($this->validateResponse($request,$err))
+        $user = JWTAuth::parseToken()->authenticate();
+        if($user->IDLevel == "S")
         {
-            return $this->errorResponse();
+            $student = Student::where("UserID",$user->UserID)->first();
+            $StuID = $student->StuID;
         }
-        return $this->successResponse($this->model->find($request->StuID)->toArray());
+        else
+        {
+            $StuID = $request->StuID;
+        }
+        if(!$StuID)
+        {
+            return $this->errorResponse('StuID不存在');
+        }
+
+        return $this->successResponse($this->model->find($StuID)->toArray());
     }
     /**
      * @SWG\Get(
