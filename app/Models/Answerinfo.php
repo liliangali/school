@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Answerinfo extends Model
 {
@@ -25,6 +27,42 @@ class Answerinfo extends Model
         {
             
         }
+
+    }
+
+    public  static  function fdata()
+    {
+        DB::connection('old')->table('answerinfo')->chunk(1000,function ($list){
+            $fdata = [];
+            foreach ($list as $index => $item)
+            {
+                $data = [];
+                $StuID = 0;
+                $ex_info = Exercise::where("old_id",$item->ExNO)->first();
+                if(!$ex_info)
+                {
+                    return;
+                }
+                $ExNO = $ex_info->ExNO;
+                $user_info = User::where("UserID",$item->MemberID)->first();
+                if($user_info)
+                {
+                    $student = Student::where("UserID",$user_info->UserID)->first();
+                    if($student)
+                    {
+                        $StuID = $student->StuID;
+                    }
+                }
+                $data['StuID'] = $StuID;
+                $data['ItemIndex'] = $item->ItemIndex;
+                $data['ExNO'] = $ExNO;
+                $data['SpendTime'] = $item->SpendTime;
+                $data['Selection'] = $item->Selection;
+                $data['Score'] = $item->Score;
+                $fdata[] = $data;
+            }
+            Answerinfo::insert($fdata);
+        });
 
     }
 }

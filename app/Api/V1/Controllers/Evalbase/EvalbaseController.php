@@ -7,6 +7,8 @@ use App\Models\Classes;
 use App\Models\Course;
 use App\Models\Evalbase;
 use App\Models\Evalstandard;
+use App\Models\Exercise;
+use App\Models\Fileformat;
 use App\Models\Marking;
 use App\Models\School;
 use App\Models\Semester;
@@ -51,6 +53,13 @@ class EvalbaseController extends BaseController {
 
     public function listT(Request $request)
     {
+        $err = [
+            'EvalNO'=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
         $user = JWTAuth::parseToken()->authenticate();
         $teacher = Teacher::where("UserID",$user->UserID)->first();
         $course = Course::where("TID",$teacher->TID)->first();
@@ -58,7 +67,7 @@ class EvalbaseController extends BaseController {
         {
             return $this->errorResponse('此老师账号没有对应的课程数据');
         }
-        $evalbase = Evalbase::where("CourseName",$course->CourseID)->get();
+        $evalbase = Evalbase::where("EvalNO",$request->EvalNO)->get();
         if(!$evalbase)
         {
             return $this->successResponse();
@@ -210,7 +219,72 @@ class EvalbaseController extends BaseController {
         return $this->successResponse(['id'=>$id]);
     }
 
+    public function getArr(Request $request)
+    {
+        $err = [
+            'CourseName'=>"required",
+            'ClassID'=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $class = Classes::find($request->ClassID);
+        if(!$class) 
+        {
+            return $this->errorResponse('ClassID错误');
+        }
+        $semester = Semester::getAuthLast();
+        $grade = $semester->AcademicYear -  $class->CreatTime + 1;
+        $grade = Semester::getGrade($class->SchoolID,$grade);
+        //StudySection
+//        $grade = '一';
+        $list = Evalbase::where("CourseName",$request->CourseName)->whereRaw('FIND_IN_SET(?,StudySection)',[$grade])->get();
+        return $this->successResponse($list);
+    }
 
+    
+    public function upEval(Request $request)
+    {
+        $err = [
+            'EvalNO'=>"required",
+            'TID'=>"required",
+            'ClassID'=>"required",
+            'AcademicYear'=>"required",
+            'SOrder'=>"required",
+            'Type'=>"required",
+            'CourseID'=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $sno = Semester::getSe($request->AcademicYear,$request->SOrder);
+        if(!$sno) 
+        {
+            return $this->errorResponse('学期不存在');
+        }
+        if($request->Type == 1)
+        {
+            $model = new Exercise();
+        }
+        else
+        {
+            $model = new Teahomework();
+        }
+        $list  =  $model->where("TID",$request->TID)->where("ClassID",$request->ClassID)->where("CourseID",$request->CourseID)->where("SNO",$sno->SNO)->get();
+        $EvalNO = $request->EvalNO;
+        $list->map(function ($item) use($EvalNO){
+            $item->EvalNO = $EvalNO;
+            $item->save();
+        });
+        return $this->successResponse();
+    }
+    
+    public function upFileformat(Request $request)
+    {
+        return $this->successResponse(Fileformat::get()->toArray());
+    }
 
 
 

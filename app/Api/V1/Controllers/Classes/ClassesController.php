@@ -58,21 +58,43 @@ class ClassesController extends BaseController {
         $user = JWTAuth::parseToken()->authenticate();
         $sarr  = [];
         $lists = [];
-        $semester = Semester::getAuthLast();
-        $SchoolID = User::getSchool();
 
+        $semester = Semester::getAuthLast();
+
+        $SchoolID = User::getSchool();
         $sarr[] = ['SchoolID', $SchoolID];
         if(isset($request->CreatTime) && $request->CreatTime)
         {
             $CreatTime =  $semester->AcademicYear - $request->CreatTime + 1;
             $sarr[] = ['CreatTime', $CreatTime];
         }
+
+
+        //grade
         if($user->IDLevel == "T")
         {
             $item = Teacher::where("UserID",$user->UserID)->first();
             $sarr[] = ['TID', $item->TID];
-            //=====  如果是认可教师  =====
-            $course = Course::where("TID",$item->TID)->get();
+            $course = '';
+            if(isset($request->AcademicYear) && isset($request->SOrder))
+            {
+                $semester = Semester::getSe($request->AcademicYear,$request->SOrder);
+                if($semester)
+                {
+                    //=====  如果是认可教师  =====
+                    $course = Course::where("TID",$item->TID)->where("SNO",$semester->SNO)->get();
+                }
+                else
+                {
+                    return $this->errorResponse('学期不存在');
+                }
+
+            }
+            else
+            {
+                //=====  如果是认可教师  =====
+                $course = Course::where("TID",$item->TID)->get();
+            }
             $acourse = $aclass = [];
             if($course)
             {
@@ -93,14 +115,25 @@ class ClassesController extends BaseController {
         {
             $lists = Classes::where($sarr)->orderBy('ClassID', 'desc')->paginate($request->page_size)->toArray();
         }
-
+        if(!$lists)
+        {
+            return $this->successResponse();
+        }
         $list = $lists['data'];
         foreach ((array)$list as $index => $item)
         {
             $list[$index]['AcademicYear'] = $semester->AcademicYear;
             $list[$index]['SOrder'] = $semester->SOrder;
             $grade = $semester->AcademicYear - $item['CreatTime'] + 1;
-            $list[$index]['grade'] = Semester::getGrade($item['SchoolID'],$grade);//年级号=当前学年 -班级创建时间+1
+            $grade = Semester::getGrade($item['SchoolID'],$grade);
+            $list[$index]['grade'] = $grade;//年级号=当前学年 -班级创建时间+1
+             //=====  年级  =====   
+//            echo '<pre>';print_r($grade);exit;
+            if($request->grade && ($request->grade != $grade))
+            {
+                unset($list[$index]);
+                continue;
+            }
             $list[$index]['Stucount'] = Student::where("ClassID",$item['ClassID'])->count();
             $list[$index]['ExNum'] = 0;
             $list[$index]['ExItemNum'] = 0;
@@ -115,7 +148,7 @@ class ClassesController extends BaseController {
             $school = School::find($item['SchoolID']);
             $list[$index]['school'] = isset($school->SchoolName) ? $school->SchoolName : '';
         }
-        $lists['data'] = $list;
+        $lists['data'] = array_values($list);
         return $this->successResponse($lists);
     }
 

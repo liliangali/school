@@ -15,4 +15,5 @@ $api->post('/schools', 'School\SchoolController@putT')->middleware(['api.asdmin'
 $api->delete('/school', 'School\SchoolController@delT')->middleware(['api.asdmin']);
 $api->delete('/school/admin', 'School\SchoolController@delA')->middleware(['api.asdmin']);
 $api->get('/semesterf', 'School\SchoolController@semesterT')->middleware(['api.admin']);
+$api->get('/educational', 'School\SchoolController@eduT');
 //$api->put('/teacher', 'Teacher\TeacherController@putT');

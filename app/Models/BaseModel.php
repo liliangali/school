@@ -121,7 +121,10 @@ class BaseModel extends Model
         if(isset($item->UserID) && $item->UserID)
         {
             $user = User::find($item->UserID);
-            $user->delete();
+            if($user)
+            {
+                $user->delete();
+            }
         }
         $item->delete();
         return true;

@@ -95,9 +95,7 @@ class TeacherController extends BaseController {
         $err = [
             'UName'=>"required|max:255",
             'CivilID'=>"required|unique:teacher",
-            'password'=>"required|max:12|min:6",
-            'Email'=>"required",
-            'Phone'=>"required",
+//            'password'=>"required|max:12|min:6",
             'Gender'=>"required",
         ];
         if($this->validateResponse($request,$err,['unique' => '此编号号已经注册!请勿重复注册']))
@@ -105,8 +103,7 @@ class TeacherController extends BaseController {
             return $this->errorResponse();
         }
         $newItem =$request->all();
-        unset($newItem['password']);
-
+//        unset($newItem['password']);
         $id = $this->model->addU($request,$newItem);
         User::where("LoginID",$request->CivilID)->update(["IDLevel"=>"T"]);
         if($id)
@@ -154,9 +151,7 @@ class TeacherController extends BaseController {
             'TID'=>"required",
             'UName'=>"required|max:255",
             'CivilID'=>"required",
-            'password'=>"max:12|min:6",
-            'Email'=>"required",
-            'Phone'=>"required",
+//            'password'=>"max:12|min:6",
             'Gender'=>"required",
         ];
         if($this->validateResponse($request,$err))

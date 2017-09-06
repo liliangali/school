@@ -3,9 +3,12 @@
 namespace App\Api\V1\Controllers\Stuhomework;
 use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
+use App\Models\Answerinfo;
 use App\Models\Classes;
 use App\Models\Course;
 use App\Models\Evalbase;
+use App\Models\Exercise;
+use App\Models\Fileformat;
 use App\Models\Marking;
 use App\Models\School;
 use App\Models\Semester;
@@ -60,15 +63,13 @@ class StuhomeworkController extends BaseController {
         {
             return $this->errorResponse('没有此学生');
         }
-        $err = [
-            'SNO'=>"required|integer",
-        ];
-        if($this->validateResponse($request,$err))
-        {
-            return $this->errorResponse();
-        }
-        $stu = Stuhomework::leftJoin("teahomework","stuhomework.HomeWorkNO",'=',"teahomework.HomeWorkNO")->where("StuID",$student->StuID)->where("SNO",$request->SNO)->
-        select("stuhomework.*","stuhomework.Status","stuhomework.Status","stuhomework.SubTime")->get()->groupBy("Status")->toArray();
+        $SNO = Semester::getAuthLast();
+        $file_fomat = Fileformat::get()->keyBy("FileNO");
+        $stu = Stuhomework::leftJoin("teahomework","stuhomework.HomeWorkNO",'=',"teahomework.HomeWorkNO")->where("StuID",$student->StuID)->where("SNO",$SNO->SNO)->
+        select("stuhomework.*","stuhomework.Status","stuhomework.Status","stuhomework.SubTime",'teahomework.CourseName','Format','HomeWorkTitle','DataLine')->get()->map(function ($item) use($file_fomat){
+            $item['Format'] = isset($file_fomat[$item['Format']]) ? $file_fomat[$item['Format']]['Description'] : '';
+            return $item;
+        })->groupBy("Status")->toArray();
         $return['finish'] = isset($stu['1']) ? $stu['1'] : [];
         $return['unfinish'] = isset($stu['2']) ? $stu['2'] : [];
         return $this->successResponse($return);
@@ -153,6 +154,9 @@ class StuhomeworkController extends BaseController {
         $student = Student::whereIn("StuID",collect($list)->pluck('StuID')->all())->get()->keyBy("StuID")->toArray();
         $steval = Stueavl::where("HomeWorkNO",$request->HomeWorkNO)->get()->groupBy("MemberID")->toArray();//互评表
         $lists['data'] = collect($list)->map(function ($item) use($student,$steval){
+            $item['SeatNO'] = "";
+            $item['UName'] = "";
+            $item['CivilID'] = "";
             if(isset($student[$item['StuID']]))
             {
                 $item['SeatNO'] = $student[$item['StuID']]['SeatNO'];
@@ -206,11 +210,12 @@ class StuhomeworkController extends BaseController {
         }
         $dir = storage_path('app/public/upload/');
         $pictureObj = $request->file("File");
-        $string = Carbon::now(config('app.timezone'))->timestamp.str_random(10).'.'.$pictureObj->extension();
+
         $stu->Status = 1;
         $stu->SubTime = date("Y-m-d H:i:s");
         if ($pictureObj && $pictureObj->isValid())
         {
+            $string = Carbon::now(config('app.timezone'))->timestamp.str_random(10).'.'.$pictureObj->extension();
             $pictureObj->move($dir, $string);
             $stu->FilePath = asset('storage/upload/' . $string);
         }
@@ -255,6 +260,45 @@ class StuhomeworkController extends BaseController {
         return $this->successResponse(['id'=>$id]);
     }
 
+    public function zpfT(Request $request) {
+        $err = [
+//            'HomeWorkNO'=>"required|integer",
+//            'Score'=>"required|integer",
+//            'TeaEval'=>"required",
+            'TotalScore'=>"required",
+            'StuScore'=>"required",
+            'StuID'=>"required|integer",
+            'ItemNO'=>"required",
+            'ItemType'=>"required",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        if($request->ItemType == 1) //=====   评论活动 =====
+        {
+            Exercise::where("ExNO",$request->ItemNO)->update(['EvalScore'=>$request->TotalScore]);
+            Answerinfo::where("ExNO",$request->ItemNO)->where("StuID",$request->StuID)->update(['EvalScore'=>$request->StuScore]);
+        }
+        else//作业
+        {
+            Teahomework::where("HomeWorkNO",$request->ItemNO)->update(['EvalScore'=>$request->TotalScore]);
+            Stuhomework::where("HomeWorkNO",$request->ItemNO)->where("StuID",$request->StuID)->update(['Score'=>$request->StuScore]);
+        }
+        $StandardNO = $request->StandardNO;
+        $Score = $request->Score;
+        $data['StuID'] = $request->StuID;
+        $data['ItemNO'] = $request->ItemNO;
+        $data['ItemType'] = $request->ItemType;
+        foreach ((array)$StandardNO as $index => $item)
+        {
+            $data['StandardNO'] = $item;
+            $data['Score'] = isset($Score[$index]) ? $Score[$index] : 0;
+            Marking::insert($data);
+        }
+        return $this->successResponse();
+    }
+
     public function pfT(Request $request) {
         $err = [
             'HomeWorkNO'=>"required|integer",
@@ -275,36 +319,6 @@ class StuhomeworkController extends BaseController {
         $item->TeaEval = $request->TeaEval;
         $item->save();
         return $this->successResponse(['id'=>$item->StuWorkNO]);
-    }
-
-    public function zpfT(Request $request) {
-        $err = [
-            'HomeWorkNO'=>"required|integer",
-            'StuID'=>"required|integer",
-            'StandardNO'=>"required",
-            'Score'=>"required",
-        ];//StandardNO //Score
-        if($this->validateResponse($request,$err))
-        {
-            return $this->errorResponse();
-        }
-        $item = $this->model->where("HomeWorkNO",$request->HomeWorkNO)->where("StuID",$request->StuID)->first();
-        if(!$item)
-        {
-            return $this->errorResponse("这个作业找不到");
-        }
-        $data['HomeWorkNO'] = $request->HomeWorkNO;
-        $data['StuID']  = $request->StuID;
-        $StandardNO = json_decode($request->StandardNO,1);
-        $Score = json_decode($request->Score,1);
-        $mark = new Marking();
-        foreach ((array)$StandardNO as $index => $item)
-        {
-            $data['StandardNO']  = $item;
-            $data['Score']  = $Score[$index];
-            $mark->insert($data);
-        }
-        return $this->successResponse();
     }
 
     public function putT(Request $request) {

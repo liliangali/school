@@ -151,7 +151,7 @@ class CourseController extends BaseController {
         $AcademicYear = $semester->AcademicYear;
         $class = Classes::where("SchoolID",$semester->SchoolID)->get()->groupBy('CreatTime')->toArray();
         $grade_list = [];
-        $AcademicYear = date("Y");
+//        $AcademicYear = date("Y");
 
         foreach ((array)$class as $index => $item)//按照年级来分组整理所有的班级
         {
@@ -176,10 +176,14 @@ class CourseController extends BaseController {
                     if(!($cu_Info))
                     {
                         $i['UName'] = "";
+                        $i['CourseID'] = 0;
+                        $i['TID'] = 0;
                     }
                     else
                     {
+                        $i['CourseID'] = $cu_Info->CourseID;
                         $i['UName'] = isset($Teacher[$cu_Info->TID]) ? $Teacher[$cu_Info->TID]['UName'] : '';
+                        $i['TID'] = isset($Teacher[$cu_Info->TID]) ? $Teacher[$cu_Info->TID]['TID'] : 0;
                     }
                     $b[] = $i;
                 }
@@ -217,6 +221,12 @@ class CourseController extends BaseController {
             'page'=>"required|integer",
             'page_size'=>"required|integer",
         ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $subject = Subject::where("SchoolID",User::getSchool())->paginate($request->page_size)->toArray();
+        return $this->successResponse($subject);
         $SchoolID = User::getSchool();
         if($this->validateResponse($request,$err))
         {
@@ -236,6 +246,44 @@ class CourseController extends BaseController {
             $semester = Semester::first();
         }
         $lists = Course::where('SchoolID',$SchoolID)->where('SNO',$semester->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
+        $list = $lists['data'];
+        foreach ((array)$list as $index => $item)
+        {
+            $teacher = Teacher::find($item['TID']);
+            $list[$index]['UName'] = isset($teacher->UName) ? $teacher->UName : '';
+        }
+        $lists['data'] = $list;
+        return $this->successResponse($lists);
+    }
+
+
+    public function listTt(Request $request)
+    {
+        $err = [
+            'page' => "required|integer",
+            'page_size' => "required|integer",
+        ];
+        if($this->validateResponse($request,$err))
+        {
+            return $this->errorResponse();
+        }
+        $user = JWTAuth::parseToken()->authenticate();
+        //grade
+        if($user->IDLevel != "T")
+        {
+            $TID   = isset($request->TID) ? $request->TID : 0;
+        }
+        else
+        {
+            $teacher = Teacher::where("UserID",$user->UserID)->first();
+            $TID = $teacher->TID;
+        }
+        if(!$TID)
+        {
+            return $this->errorResponse("TID必须传");
+        }
+        $SNO = Semester::getAuthLast();
+        $lists = Course::where('TID',$TID)->where('SNO',$SNO->SNO)->orderBy('CourseID', 'desc')->paginate($request->page_size)->toArray();
         $list = $lists['data'];
         foreach ((array)$list as $index => $item)
         {
@@ -304,10 +352,47 @@ class CourseController extends BaseController {
                 $adata['ClassID'] = $item;
                 $adata['CourseName'] = $item1['CourseName'];
                 $adata['TID'] = $item1['TID'];
+                if($this->model->where("CourseName",$item1['CourseName'])->where("ClassID",$item)->where("SNO",$adata['SNO'])->first())
+                {
+                    continue;
+                }
                 $this->model->saveModel($adata);
             }
         }
 
+        return $this->successResponse();
+    }
+
+    public function addSub(Request $request)
+    {
+        $err = [
+            'CName' => "required",
+        ];
+        $subject = new Subject();
+        if($subject>where("CName",$request->CName)->where("SchoolID",User::getSchool())->first())
+        {
+            return $this->errorResponse('同一个学校只需要添加一个科目');
+        }
+        if ($this->validateResponse($request, $err))
+        {
+            return $this->errorResponse();
+        }
+        $all  = $request->all();
+        $all['SchoolID'] = User::getSchool();
+        $subject->saveModel($all);
+        return $this->successResponse();
+    }
+    public function delSub(Request $request)
+    {
+        $err = [
+            'CourseNO' => "required",
+        ];
+        if ($this->validateResponse($request, $err))
+        {
+            return $this->errorResponse();
+        }
+        $subject = new Subject();
+        $subject->del($request);
         return $this->successResponse();
     }
 

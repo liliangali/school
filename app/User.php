@@ -3,11 +3,19 @@
 namespace App;
 
 use App\Models\Admin;
+use App\Models\Answerinfo;
 use App\Models\Cash;
 use App\Models\ChDiscount;
+use App\Models\Classes;
+use App\Models\Course;
+use App\Models\Exercise;
+use App\Models\Exerciseitem;
 use App\Models\Order;
+use App\Models\Semester;
 use App\Models\Student;
+use App\Models\SysAdmin;
 use App\Models\Teacher;
+use App\Models\Teahomework;
 use Carbon\Carbon;
 use Dingo\Api\Routing\Helpers;
 use GuzzleHttp\Client;
@@ -29,7 +37,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $fillable = [
-        "LoginID","password","IDLevel"
+        "LoginID","password","IDLevel","old_id"
     ];
     public  $timestamps = false;//去掉update_time等三个字段
     /**
@@ -61,9 +69,13 @@ class User extends Authenticatable
     */
     public static function add($data)
     {
-        if(isset($data['password']))
+        if(isset($data['password']) && $data['password'])
         {
             $data['password'] =  bcrypt($data['password']);
+        }
+        else
+        {
+            $data['password'] =  bcrypt(123456);
         }
 
         
@@ -429,6 +441,98 @@ class User extends Authenticatable
             return $item->SchoolID;
         }
         return 0;
+    }
+
+    public static function postData()
+    {
+        set_time_limit(0);
+        User::fdata();
+        Classes::fdata();
+        Semester::fdata();
+        Course::fdata();
+        Exercise::fdata();
+//        Teahomework::fdata();
+    }
+
+
+
+
+
+    public static function fdata()
+    {
+        User::truncate();
+        Teacher::truncate();
+        Student::truncate();
+        Admin::truncate();
+        SysAdmin::truncate();
+        $old_IDLevel = [
+            'U' => "Y",
+            'D' => "U",
+            'T' => "T",
+            'S' => "S",
+        ];
+        $old_list = DB::connection('old')->table('systemauthority')->get();
+        foreach ((array)$old_list as $index => $item)
+        {
+            if(isset($item->MemberID))
+            {
+                $info = DB::connection('old')->table('member')->where('MemberID',$item->MemberID)->first();
+                if(!$info || !$info->LoginID)
+                {
+                    continue;
+                }
+                $udata['LoginID'] = $info->LoginID;
+                $udata['old_id'] = $item->MemberID;
+                $udata['password'] = '123456';
+                $udata['IDLevel'] = $old_IDLevel[$item->IDLevel];
+                $uinfo = User::add($udata);
+                if(!$uinfo)
+                {
+                    continue;
+                }
+                $UserID = $uinfo->UserID;
+                if($uinfo->IDLevel == "Y")
+                {
+                    $ydata['UserID'] = $UserID;
+                    $ydata['UName'] = $udata['LoginID'];
+                    $ydata['CivilID'] = $udata['LoginID'];
+                    SysAdmin::insert($ydata);
+                }
+                elseif ($uinfo->IDLevel == "U")
+                {
+                    $adata['UserID'] = $UserID;
+                    $adata['UName']   = $info->RealName;
+                    $adata['CivilID'] = $info->LoginID;
+                    $adata['Gender']  = $info->Gender;
+                    $adata['SchoolID'] = 26;
+                    Admin::insert($adata);
+                }
+                elseif ($uinfo->IDLevel == "S")
+                {
+                    $classmember_info = DB::connection('old')->table('classmember')->where('MemberID',$item->MemberID)->first();
+                    $sadata['UserID'] = $UserID;
+                    $sadata['UName']   = $info->RealName;
+                    $sadata['CivilID'] = $info->LoginID;
+                    $sadata['Gender']  = $info->Gender;
+                    $sadata['ClassID']  = isset($classmember_info->ClassID) ? $classmember_info->ClassID : 0;
+                    $sadata['SeatNO']  = isset($classmember_info->SeatNO) ? $classmember_info->SeatNO : '';
+                    $sadata['SchoolID'] = 26;
+                    Student::insert($sadata);
+                }
+                elseif ($uinfo->IDLevel == "T")
+                {
+                    $tdata['UserID'] = $UserID;
+                    $tdata['UName']   = $info->RealName;
+                    $tdata['CivilID'] = $info->LoginID;
+                    $tdata['Gender']  = $info->Gender;
+                    $tdata['SchoolID'] = 26;
+                    Teacher::insert($tdata);
+//                    unset($newItem['password']);
+                }
+
+            }
+        }
+//echo '<pre>';print_r($old_list);exit;
     }
 
 }

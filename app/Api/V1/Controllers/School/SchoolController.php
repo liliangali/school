@@ -5,6 +5,7 @@ use App\Api\V1\Controllers\BaseController;
 use App\Models\Admin;
 use App\Models\Classes;
 use App\Models\Course;
+use App\Models\Educational;
 use App\Models\Error;
 use App\Models\Exercise;
 use App\Models\School;
@@ -57,10 +58,16 @@ class SchoolController extends BaseController {
         $user = JWTAuth::parseToken()->authenticate();
         $admin = Admin::where("UserID",$user->UserID)->first();
         $lists = School::orderBy('SchoolID', 'desc')->paginate($request->page_size)->toArray();
+        $edu = Educational::get()->keyBy("EduID")->toArray();
         $list = $lists['data'];
-        $lists['data'] = collect($list)->map(function ($item) use($admin){
+        $lists['data'] = collect($list)->map(function ($item) use($admin,$edu){
 //            $item['UName'] = $admin->UName;
 //            $item['AdminID'] = $admin->AdminID;
+            $item['EduName'] = '';
+            if(isset($edu[$item['Type']]))
+            {
+                $item['EduName'] = $edu[$item['Type']]['EduName'];
+            }
             return $item;
         })->toArray();
         return $this->successResponse($lists);
@@ -167,14 +174,20 @@ class SchoolController extends BaseController {
             'SchoolCode'=>"required|unique:school",
             'Address'=>"required",
             'Telephone'=>"required",
-            'Type'=>"required",
+            'EduID'=>"required",
         ];
+        if(!(Educational::find($request->Type)))
+        {
+            return $this->errorResponse("学制ID不存在");
+        }
         if($this->validateResponse($request,$err,['unique' => '学校编号号已经注册!请勿重复添加']))
         {
             return $this->errorResponse();
         }
         $all = $request->all();
+        $all['Type'] = $all['EduID'];
         unset($all['token']);
+        unset($all['EduID']);
         $id = School::insertGetId($all);
         return $this->successResponse(['id'=>$id]);
     }
@@ -198,18 +211,29 @@ class SchoolController extends BaseController {
 
     public function addA(Request $request) {
         $err = [
-            'SchoolID'=>"required",
             'UName'=>"required",
             'CivilID'=>"required|unique:admin",
             'Gender'=>"required",
-            'Phone'=>"required",
-            'Email'=>"required",
-            'password' => 'required|max:12|min:6',
+//            'password' => 'required|max:12|min:6',
         ];
         if($this->validateResponse($request,$err,['unique' => '学校编号号已经注册!请勿重复添加']))
         {
             return $this->errorResponse();
         }
+        $user = JWTAuth::parseToken()->authenticate();
+        if($user->IDLevel == 'U')
+        {
+            $SchoolID = User::getSchool();
+        }
+        else
+        {
+            if(!isset($request->SchoolID))
+            {
+                return $this->errorResponse('SchoolID is not empty');
+            }
+            $SchoolID = $request->SchoolID;
+        }
+
         if(User::where("LoginID",$request->CivilID)->first())
         {
             return $this->errorResponse('登陆账号重复');
@@ -218,7 +242,7 @@ class SchoolController extends BaseController {
         
         $udata['LoginID'] = $request->CivilID;
         $udata['IDLevel'] = "U";
-        $udata['password'] = $request->password;
+        $udata['password'] = 123456;
         if(!User::add($udata))
         {
             return $this->errorResponse('失败');
@@ -227,6 +251,7 @@ class SchoolController extends BaseController {
         $all = $request->all();
         unset($all['token']);
         unset($all['password']);
+        $all['SchoolID'] = $SchoolID;
         $all['UserID'] = $user->UserID;
         Admin::insert($all);
         return $this->successResponse();
@@ -255,17 +280,29 @@ class SchoolController extends BaseController {
             'UName'=>"required",
             'CivilID'=>"required",
             'Gender'=>"required",
-            'Phone'=>"required",
-            'Email'=>"required",
-            'Address'=>"required",
-            'password' => 'max:12|min:6',
-            'Birthday'=>"required",
+//            'password' => 'max:12|min:6',
             'AdminID'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
             return $this->errorResponse();
         }
+
+        $user = JWTAuth::parseToken()->authenticate();
+        if($user->IDLevel == 'U')
+        {
+            $SchoolID = User::getSchool();
+        }
+        else
+        {
+            if(!isset($request->SchoolID))
+            {
+                return $this->errorResponse('SchoolID is not empty');
+            }
+            $SchoolID = $request->SchoolID;
+        }
+
+
         $admin = Admin::find($request->AdminID);
         if(!$admin)
         {
@@ -287,6 +324,7 @@ class SchoolController extends BaseController {
             return $this->errorResponse('失败,编号已存在');
         }
         $all = $request->all();
+        $all['SchoolID'] = $SchoolID;
         unset($all['token']);
         unset($all['password']);
         unset($all['AdminID']);
@@ -301,6 +339,7 @@ class SchoolController extends BaseController {
             'SchoolCode'=>"required",
             'Address'=>"required",
             'Telephone'=>"required",
+            'EduID'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
@@ -315,9 +354,11 @@ class SchoolController extends BaseController {
             return $this->errorResponse("此编号重复");
         }
         $all = $request->all();
+        $all['Type'] = $all['EduID'];
         $SchoolID = $all['SchoolID'];
         unset($all['token']);
         unset($all['SchoolID']);
+        unset($all['EduID']);
         School::where("SchoolID",$SchoolID)->update($all);
         return $this->successResponse();
     }
@@ -501,6 +542,10 @@ echo '<pre>';print_r($request->all());exit;
         echo '<pre>';print_r(11);exit;
     }
 
+    public function eduT(Request $request)
+    {
+        return $this->successResponse(Educational::get());
+    }
 
 
 }

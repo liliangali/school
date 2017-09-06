@@ -18,3 +18,4 @@ $api->get('/users/bankl', 'User\UserController@getBankL');
 $api->post('/users/cash', 'User\UserController@saveCash');
 $api->get('/users/cash', 'User\UserController@getCash');
 $api->get('/users/discount', 'User\UserController@getDicount');
+$api->get('/users/resetpass', 'User\UserController@resetPass');

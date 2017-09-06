@@ -9,6 +9,7 @@ use App\Models\Semester;
 use App\Models\Student;
 use App\Models\SysAdmin;
 use App\Models\Teacher;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Validator;
 use App\Api\V1\Controllers\BaseController;
@@ -245,10 +246,15 @@ class AuthController extends BaseController {
         $response = $client->post("http://081684.com/api/pk10/getBaseList.php?lottObj=");
         $code = $response->getStatusCode(); // 200
 //        echo '<pre>';print_r($code);exit;
-        
         $body = $response->getBody()->getContents();
         return $body;
         
+    }
+
+    public function postData()
+    {
+        $exitCode = Artisan::call('post:data');
+//        User::postData();
     }
 
 }

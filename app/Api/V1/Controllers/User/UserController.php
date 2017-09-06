@@ -3,12 +3,15 @@
 namespace App\Api\V1\Controllers\User;
 
 use App\Api\V1\Controllers\BaseController;
+use App\Models\Admin;
 use App\Models\Cash;
 use App\Models\ChDiscount;
 use App\Models\Error;
 use App\Models\LaravelSms;
 use App\Models\MemberBank;
 use App\Models\Order;
+use App\Models\Student;
+use App\Models\Teacher;
 use App\Serializer\CustomSerializer;
 use Illuminate\Http\Request;
 use App\User;
@@ -230,7 +233,7 @@ class UserController extends BaseController {
             'user_name' => 'required|max:255',
             'email' => 'max:255',
             'user_id' => 'required',
-            'password' => 'max:12|min:6',
+//            'password' => 'max:12|min:6',
         ]);
         if(User::where('user_id','!=',$request->user_id)->where(function ($query) use ($request) {
             if($request->email)
@@ -352,5 +355,72 @@ class UserController extends BaseController {
     public function getDicount()
     {
         return $this->successResponse(ChDiscount::getDis());
+    }
+    
+    public function resetPass(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'UserID'=>"required|integer",
+            'IDLevel'=>"required",
+        ]);
+        if($validator->fails())
+        {
+            return $this->errorResponse($validator->errors()->first());
+        }
+        $user = JWTAuth::parseToken()->authenticate();
+        if($user->IDLevel == "Y")
+        {
+            $item = Admin::find($request->UserID);
+            if(!$item)
+            {
+                return $this->errorResponse('此管理员账户不存在');
+            }
+            $new_user = User::find($item->UserID);
+            if(!$new_user)
+            {
+                return $this->errorResponse('此管理员账户不存在');
+            }
+            $new_user->password = bcrypt('123456');
+            $new_user->save();
+        }
+        elseif($user->IDLevel == "U")
+        {
+            if($request->IDLevel == "T")
+            {
+                $item = Teacher::find($request->UserID);
+            }
+            else
+            {
+                $item = Student::find($request->UserID);
+            }
+            if(!$item)
+            {
+                return $this->errorResponse('此账户不存在');
+            }
+            $new_user = User::find($item->UserID);
+            if(!$new_user)
+            {
+                return $this->errorResponse('此账户不存在');
+            }
+            $new_user->password = bcrypt('123456');
+            $new_user->save();
+        }
+        elseif($user->IDLevel == "T")
+        {
+            $item = Student::find($request->UserID);
+            if(!$item)
+            {
+                return $this->errorResponse('此账户不存在');
+            }
+            $new_user = User::find($item->UserID);
+            if(!$new_user)
+            {
+                return $this->errorResponse('此账户不存在');
+            }
+            $new_user->password = bcrypt('123456');
+            $new_user->save();
+        }
+
+        return $this->successResponse();
     }
 }

@@ -5,6 +5,8 @@ namespace App\Models;
 use App\User;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
 class Exercise extends Model
 {
     public $table = 'exercise';
@@ -313,7 +315,6 @@ class Exercise extends Model
             $ereturn['msg'] = "题目添加失败";
             return $ereturn;
         }
-//echo '<pre>';print_r($eitem_id);exit;
     }
     
     public static function getRate($ExNO)
@@ -323,11 +324,12 @@ class Exercise extends Model
         $exerciseitem = collect(Exerciseitem::where("ExNO",$ExNO)->get()->toArray())->keyBy('ItemIndex')->all();
         $dati_num = 0;
         $dadui_num = 0;
+
         foreach ((array)$answerinfo as $index1 => $item1)
         {
             if($item1['Selection'])
             {
-                if($item1['Score'] == $exerciseitem[$item1['ItemIndex']]['Point'])
+                if(isset($exerciseitem[$item1['ItemIndex']]) && ($item1['Score'] == $exerciseitem[$item1['ItemIndex']]['Point']))
                 {
                     $dadui_num++;
                 }
@@ -449,6 +451,78 @@ class Exercise extends Model
                 $item1->delete();
             }
         }
+    }
+
+
+    public static function fdata()
+    {
+        Exercise::truncate();
+        Exerciseitem::truncate();
+        Answerinfo::truncate();
+        DB::connection('old')->table('exercise')->chunk(500,function ($list){
+            $data_list = [];
+            foreach ($list as $index => $item)
+            {
+                $data = [];
+                $TID = 0;
+                $CourseID = 0;
+                $ClassID = 0;
+                $SNO = 0;
+                $user_info = User::where("old_id",$item->MemberID)->first();
+                if($user_info)
+                {
+                    $teacher = Teacher::where("UserID",$user_info->UserID)->first();
+                    if($teacher)
+                    {
+                        $TID = $teacher->TID;
+                    }
+                }
+                $course_info = Classes::whereRaw('FIND_IN_SET(?,old_id)', [$item->CourseNO])->first();
+//                $course_info = Course::where("old_id",$item->CourseNO)->first();
+                if($course_info)
+                {
+                    $CourseID = $course_info->CourseID;
+                }
+
+                $class_info = Classes::whereRaw('FIND_IN_SET(?,old_id)', [$item->ClassID])->first();
+//                $class_info = Classes::where("old_id",$item->ClassID)->first();
+                if($class_info)
+                {
+                    $ClassID = $class_info->ClassID;
+                    $old_class =  DB::connection('old')->table('classes')->where("ClassID",$item->ClassID)->first();
+                    if($old_class)
+                    {
+                        $seme = Semester::where("SNO",$old_class->SNO)->first();
+                        if($seme)
+                        {
+                            $SNO = $seme->SNO;
+                        }
+                    }
+                }
+                $data['TID'] = $TID;
+                $data['CourseID'] = $CourseID;
+                $data['ClassID'] = $ClassID;
+                $data['SNO'] = $SNO;
+                $data['ExType'] = $item->ExType;
+                $data['ExName'] = $item->ExName;
+                $data['ExTime'] = $item->ExTime;
+                $data['EndTime'] = $item->EndTime;
+                $data['AvgScore'] = $item->AvgScore;
+                $data['QNumber'] = $item->QNumber;
+                $data['StuCount'] = $item->StuCount;
+                $data['AnsNum'] = $item->AnsNum;
+                $data['TrueNum'] = $item->TrueNum;
+                $data['TrueRate'] = $item->TrueRate;
+                $data['TotalSpendTime'] = $item->TotalSpendTime;
+                $data['AvgSpendTime'] = $item->AvgSpendTime;
+                $data['SubmitTime'] = date("Y-m-d H:i:s");
+                $data['old_id'] = $item->ExNO;
+                $data_list[] = $data;
+            }
+            Exercise::insert($data_list);
+        });
+        Exerciseitem::fdata();
+        Answerinfo::fdata();
     }
 
 }

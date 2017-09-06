@@ -95,7 +95,7 @@ class StudentController extends BaseController {
             'ClassID'=>"required|max:255",
             'CivilID'=>"required|unique:student",
             'SeatNO'=>"required",
-            'password'=>"required|max:12|min:6",
+//            'password'=>"required|max:12|min:6",
             'UName'=>"required",
             'Gender'=>"required",
         ];
@@ -113,7 +113,7 @@ class StudentController extends BaseController {
             return $this->errorResponse("存班级ID不存在");
         }
         $newItem =$request->all();
-        unset($newItem['password']);
+//        unset($newItem['password']);
         $id = $this->model->addU($request,$newItem);
         User::where("LoginID",$request->CivilID)->update(["IDLevel"=>"S"]);
         if($id)
@@ -162,7 +162,6 @@ class StudentController extends BaseController {
             'StuID'=>"required",
             'CivilID'=>"required",
             'SeatNO'=>"required",
-            'password'=>"max:12|min:6",
             'UName'=>"required",
             'Gender'=>"required",
         ];
@@ -197,7 +196,12 @@ class StudentController extends BaseController {
         {
             return $this->errorResponse("存班级ID不存在");
         }
-        if($this->model->saveModel($request->all()))
+        $all = $request->all();
+        $student = Student::where("ClassID",$request->ClassID)->orderBy('SeatNO', 'desc')->first();
+        $SeatNO = isset($student->SeatNO)? $student->SeatNO : 0;
+        $new_SeatNO = $SeatNO + 1;
+        $all['SeatNO'] = $new_SeatNO;
+        if($this->model->saveModel($all))
         {
             return $this->successResponse();
         }

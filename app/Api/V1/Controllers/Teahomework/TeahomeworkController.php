@@ -2,9 +2,12 @@
 
 namespace App\Api\V1\Controllers\Teahomework;
 use App\Api\V1\Controllers\BaseController;
+use App\Helper;
 use App\Models\Admin;
 use App\Models\Classes;
 use App\Models\Course;
+use App\Models\Evalbase;
+use App\Models\Fileformat;
 use App\Models\School;
 use App\Models\Semester;
 use App\Models\Student;
@@ -57,11 +60,9 @@ class TeahomeworkController extends BaseController {
         {
             return $this->errorResponse();
         }
-
         $user = JWTAuth::parseToken()->authenticate();
-
         //=====  获取学期SNO  =====
-        $semester = Semester::where('AcademicYear',$request->AcademicYear)->where('SOrder',$request->SOrder)->first();
+        $semester = Semester::getSe($request->AcademicYear,$request->SOrder);
         if(!$semester)
         {
             return $this->errorResponse('学期不存在');
@@ -73,10 +74,13 @@ class TeahomeworkController extends BaseController {
             $teacher = Teacher::where("UserID",$user->UserID)->first();
             $where['TID'] = $teacher->TID;
         }
-
+        $file = Fileformat::get()->keyBy("FileNO")->toArray();
+        $eval = Evalbase::get()->keyBy("EvalNO")->toArray();
         $lists = Teahomework::where($where)->where('SNO',$semester->SNO)->orderBy('HomeWorkNO', 'desc')->paginate($request->page_size)->toArray();
-        $lists['data'] = collect($lists['data'])->map(function ($item){
+        $lists['data'] = collect($lists['data'])->map(function ($item) use($file,$eval) {
             $item['SubmitCount'] = Stuhomework::where("HomeWorkNO",$item['HomeWorkNO'])->where("Status",1)->count();
+            $item['Format'] = isset($file[$item['Format']]) ? $file[$item['Format']]['Description'] : '';
+            $item['EvalName']  = isset($eval[$item['EvalNO']]) ? $eval[$item['EvalNO']]['EvalName'] : '';
             return $item;
         })->toArray();
         return $this->successResponse($lists);
@@ -114,9 +118,9 @@ class TeahomeworkController extends BaseController {
 
     public function addT(Request $request) {
         $user = JWTAuth::parseToken()->authenticate();
-        if($user->IDLevel != "T") //=====  学生登陆  =====
+        if($user->IDLevel != "T")
         {
-            return $this->errorResponse('此接口只允许学生使用');
+            return $this->errorResponse('此接口只允许老师使用');
         }
         $teacher = Teacher::where("UserID",$user->UserID)->first();
         if(!$teacher)
@@ -124,11 +128,10 @@ class TeahomeworkController extends BaseController {
             return $this->errorResponse('错误');
         }
         $err = [
-            'ClassID'=>"required",
             'SNO'=>"required",
             'HomeWorkType'=>"required",
             'HomeWorkTitle'=>"required",
-            'CourseName'=>"required",
+//            'CourseName'=>"required",
             'BeginTime'=>"required",
             'DataLine'=>"required",
             'HomeMode'=>"required",
@@ -136,7 +139,7 @@ class TeahomeworkController extends BaseController {
             'Description'=>"required",
             'Evaluation'=>"required",
             'HomeWorkView'=>"required",
-            'EvalNO'=>"required",
+//            'EvalNO'=>"required",
         ];
         if($this->validateResponse($request,$err))
         {
@@ -149,36 +152,47 @@ class TeahomeworkController extends BaseController {
         }
 //        $seme = Semester::getAuthLast();
         $all = $request->all();
-//        $all['SNO'] = $seme->SNO;
         $all["TID"] = $teacher->TID;
-        $dir = storage_path('app/public/upload');
-        $pictureObj = $request->file("File");
-        $string = Carbon::now(config('app.timezone'))->timestamp.str_random(10).'.png';
-        if ($pictureObj && $pictureObj->isValid())
+        unset($all['ClassID']);
+        $ClassID = $request->ClassID;
+        if(!is_array($ClassID) || !$ClassID)
         {
-            $pictureObj->move($dir, $string);
-            $all['FilePath'] = asset('storage/upload/' . $string);
+            return $this->errorResponse("ClassID参数错误");
         }
-        $id = $this->model->saveModel($all);
-        if(!$id)
+        foreach ($ClassID as $index => $item)
         {
-            return $this->errorResponse();
-        }
-        $tall['HomeWorkNO'] = $id;
-        $tall['HomeMode'] = $request->HomeMode;
-        $tall['Status'] = 2;
-        $studentList = Student::where("ClassID",$request->ClassID)->get();
-        if($studentList)//=====  学生添加作业  =====
-        {
-            foreach ($studentList as $index => $item)
+            $all['ClassID'] = $item;
+            $dir = storage_path('app/public/upload');
+            $pictureObj = $request->file("File");
+            $string = Carbon::now(config('app.timezone'))->timestamp.str_random(10).'.png';
+            if ($pictureObj && $pictureObj->isValid())
             {
-                $tall['StuID'] = $item->StuID;
-//                $tall['SubTime'] = $item->StuID;
-//                $tall['FilePath'] = $item->StuID;
-//                $tall['ViewCounter'] = $item->StuID;
-//                $tall['Score'] = $item->StuID;
-//                $tall['TeaEval'] = $item->StuID;
-                Stuhomework::insert($tall);
+                $pictureObj->move($dir, $string);
+                $all['FilePath'] = asset('storage/upload/' . $string);
+            }
+
+            //exercise表中评价编号EvalNO，在同一个班级、学期、科目的EvalNO要保持一致；
+            $teachworkitem = $this->model->where("ClassID",$item)->where("SNO",$request->SNO)->where("CourseName",$request->CourseName)->first();
+            if($teachworkitem)
+            {
+                $all['EvalNO'] = $teachworkitem->EvalNO;
+            }
+            $id = $this->model->saveModel($all);
+            if(!$id)
+            {
+                return $this->errorResponse();
+            }
+            $tall['HomeWorkNO'] = $id;
+            $tall['HomeMode'] = $request->HomeMode;
+            $tall['Status'] = 2;
+            $studentList = Student::where("ClassID",$item)->get();
+            if($studentList)//=====  学生添加作业  =====
+            {
+                foreach ($studentList as $index1 => $item1)
+                {
+                    $tall['StuID'] = $item1->StuID;
+                    Stuhomework::insert($tall);
+                }
             }
         }
         return $this->successResponse(['id'=>$id]);

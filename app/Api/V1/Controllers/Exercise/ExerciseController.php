@@ -50,7 +50,6 @@ class ExerciseController extends BaseController {
 
     public function listT(Request $request)
     {
-
         $err = [
             'page'=>"required|integer",
             'page_size'=>"required|integer",
@@ -92,9 +91,10 @@ class ExerciseController extends BaseController {
         }
         $teacher = Helper::getKeyList(new Teacher(),$list);
         $course =  Helper::getKeyList(new Course(),$list);
+
         $list = collect($list)->map(function ($item,$key) use ($teacher,$course){
-            $item['uname']  = isset($teacher['TID']) ? $teacher['TID']['UName'] : '';
-            $item['Coursename'] = isset($course['CourseID']) ? $course['CourseID']['CourseName'] : 0;
+            $item['uname']  = isset($teacher[$item['TID']]) ? $teacher[$item['TID']]['UName'] : '';
+            $item['Coursename'] = isset($course[$item['CourseID']]) ? $course[$item['CourseID']]['CourseName'] : 0;
             $item['TrueRate'] = Exercise::getRate($item['ExNO']);
             return $item;
         })->toArray();
@@ -107,6 +107,8 @@ class ExerciseController extends BaseController {
     {
         $err = [
             'ExNO'=>"required|integer",
+            'page'=>"required|integer",
+            'page_size'=>"required|integer",
         ];
         if($this->validateResponse($request,$err))
         {
@@ -117,8 +119,8 @@ class ExerciseController extends BaseController {
         {
             return $this->errorResponse('活动不存在');
         }
-
-        $eitem_list = Exerciseitem::where("ExNO",$request->ExNO)->get()->toArray();
+        $ex_list =  Exerciseitem::where("ExNO",$request->ExNO)->paginate($request->page_size)->toArray();//paginate($request->page_size)
+        $eitem_list = $ex_list['data'];
         $ItemIndexList  = collect($eitem_list)->pluck('ItemIndex')->all();
         $answerinfo_list = Answerinfo::where("ExNO",$request->ExNO)->whereIn("ItemIndex",$ItemIndexList)->get()->toArray();
         $answerinfo_list = collect($answerinfo_list)->groupBy("ItemIndex")->toArray();
@@ -157,7 +159,8 @@ class ExerciseController extends BaseController {
             $item['AvgSpendTime'] = count($AvgSpendTime);//答题时间
             return $item;
         })->toArray();
-        return $this->successResponse($eitem_list);
+        $ex_list['data'] = $eitem_list;
+        return $this->successResponse($ex_list);
     }
     public function getIT(Request $request)
     {
@@ -341,18 +344,22 @@ class ExerciseController extends BaseController {
         $ItemIndex = collect(Exerciseitem::where("ExNO",$request->ExNO)->get()->toArray())->keyBy('ItemIndex')->all();
         $answerinfo_list = collect(Answerinfo::where("ExNO",$request->ExNO)->whereIn("StuID",collect($list)->pluck('StuID')->all())->get())->groupBy("StuID")->toArray();
         $list = collect($list)->map(function ($item) use ($answerinfo_list,$ItemIndex){
-            $an_list = $answerinfo_list[$item['StuID']];
+            $an_list = isset($answerinfo_list[$item['StuID']]) ? $answerinfo_list[$item['StuID']] : [];
             $TrueNum = 0;
             $Score = 0;
-            foreach ((array)$an_list as $index1 => $item1)
+            $TrueRate = 0;
+            if($an_list)
             {
-                if($ItemIndex[$item1['ItemIndex']]['Point'] == $item1['Score'])
+                foreach ((array)$an_list as $index1 => $item1)
                 {
-                    $TrueNum++;
+                    if(isset($ItemIndex[$item1['ItemIndex']]['Point']) && $ItemIndex[$item1['ItemIndex']]['Point'] == $item1['Score'])
+                    {
+                        $TrueNum++;
+                    }
+                    $Score += $item1['Score'];
                 }
-                $Score += $item1['Score'];
+                $TrueRate = number_format($TrueNum/count($an_list));
             }
-            $TrueRate = number_format($TrueNum/count($an_list));
             $item['Score'] = $Score;
             $item['TrueNum'] = $TrueNum;
             $item['TrueRate'] = $TrueRate;

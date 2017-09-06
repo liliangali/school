@@ -4,10 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Subject extends BaseModel
+class Educational extends BaseModel
 {
-    public $table = 'subject';
-    public $primaryKey = "CourseNO";
+    public $table = 'educational';
+    public $primaryKey = "EduID";
     public  $timestamps = false;//去掉update_time等三个字段
-
 }

@@ -74,6 +74,6 @@ class Helper
      */
     public static function getKeyList($model,$data)
     {
-        return collect($model->whereIn($model->primaryKey,collect($data)->pluck($model->primaryKey)->toArray())->get())->keyBy($model->primaryKey)->all();
+        return collect($model->whereIn($model->primaryKey,collect($data)->pluck($model->primaryKey)->toArray())->get())->keyBy($model->primaryKey)->toArray();
     }
 }
